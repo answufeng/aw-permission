@@ -1,10 +1,8 @@
 # aw-permission
 
-Android runtime permission library. Coroutine-based with hidden Fragment approach, no need to override onRequestPermissionsResult.
+Android 运行时权限库，基于协程 + 隐藏 Fragment 实现，无需覆写 onRequestPermissionsResult。
 
-## Installation
-
-Add the dependency in your module-level `build.gradle.kts`:
+## 引入
 
 ```kotlin
 dependencies {
@@ -12,57 +10,45 @@ dependencies {
 }
 ```
 
-Make sure you have the JitPack repository in your root `settings.gradle.kts`:
+## 功能特性
+
+- 基于协程的权限请求（suspend 函数）
+- Mutex 串行化保证并发安全
+- 区分「拒绝」和「永久拒绝（不再询问）」
+- 支持权限理由说明（Rationale）自定义 UI
+- Activity/Fragment 扩展函数
+- 内置跳转应用设置页
+
+## 使用示例
 
 ```kotlin
-dependencyResolutionManagement {
-    repositories {
-        google()
-        mavenCentral()
-        maven("https://jitpack.io")
-    }
-}
-```
-
-## Features
-
-- Coroutine-based permission request (suspend function)
-- Mutex-serialized concurrent safety
-- Distinguishes denied vs permanently denied (Don't ask again)
-- Rationale support with custom UI
-- Extension functions for Activity/Fragment
-- Built-in app settings launcher
-
-## Usage
-
-```kotlin
-// Simple request
+// 简单请求
 lifecycleScope.launch {
     val result = BrickPermission.request(activity, Manifest.permission.CAMERA)
     if (result.isAllGranted) { openCamera() }
     else if (result.hasPermanentlyDenied) { BrickPermission.openAppSettings(context) }
 }
 
-// With rationale
+// 带理由说明
 val result = BrickPermission.requestWithRationale(
     activity,
     arrayOf(Manifest.permission.CAMERA),
     rationale = { permissions, proceed, cancel ->
         AlertDialog.Builder(this)
-            .setMessage("Camera permission is needed")
-            .setPositiveButton("Allow") { _, _ -> proceed() }
-            .setNegativeButton("Deny") { _, _ -> cancel() }
+            .setMessage("需要相机权限才能拍照")
+            .setPositiveButton("允许") { _, _ -> proceed() }
+            .setNegativeButton("拒绝") { _, _ -> cancel() }
             .show()
     }
 )
 
-// Extension functions
+// 扩展函数
 requirePermissions(Manifest.permission.CAMERA,
     onGranted = { openCamera() },
     onDenied = { result -> handleDenial(result) }
 )
 ```
 
-## License
+## 许可证
 
-Apache License 2.0. See [LICENSE](LICENSE) for details.
+Apache License 2.0，详见 [LICENSE](LICENSE)。
