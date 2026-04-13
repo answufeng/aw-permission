@@ -1,1 +1,5 @@
-# brick-permission consumer ProGuard rules
+# aw-permission consumer ProGuard rules
+
+-keepclassmembers class com.answufeng.permission.** {
+    *;
+}

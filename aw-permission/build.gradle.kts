@@ -38,13 +38,13 @@ android {
 }
 
 dependencies {
+    api(libs.coroutines.core)
+    implementation(libs.coroutines.android)
     implementation(libs.core.ktx)
     implementation(libs.appcompat)
     implementation(libs.activity.ktx)
     implementation(libs.fragment.ktx)
     implementation(libs.annotation)
-    implementation(libs.coroutines.core)
-    implementation(libs.coroutines.android)
     implementation(libs.lifecycle.runtime.ktx)
 
     testImplementation(libs.junit)

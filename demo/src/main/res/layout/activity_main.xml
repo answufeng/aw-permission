@@ -14,15 +14,59 @@
         android:textStyle="bold"
         android:layout_marginBottom="16dp" />
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnRequestCamera"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Request Camera"
+        android:layout_marginBottom="8dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnRequestLocation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Request Location"
+        android:layout_marginBottom="8dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnRequestMultiple"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Request Multiple"
+        android:layout_marginBottom="8dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnRequestWithRationale"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Request With Rationale"
+        android:layout_marginBottom="8dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCheckPermission"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Check Permission"
+        android:layout_marginBottom="8dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnOpenSettings"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Open App Settings"
+        android:layout_marginBottom="16dp" />
+
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
-        <LinearLayout
-            android:id="@+id/container"
+        <TextView
+            android:id="@+id/tvLog"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical" />
+            android:textSize="14sp"
+            android:fontFamily="monospace" />
 
     </ScrollView>
 
