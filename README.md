@@ -1,27 +1,29 @@
 # aw-permission
 
-Android runtime permission library built on coroutines + hidden Fragment. No need to override `onRequestPermissionsResult`.
+[![](https://jitpack.io/v/answufeng/aw-permission.svg)](https://jitpack.io/#answufeng/aw-permission)
 
-## Features
+基于协程 + 隐藏 Fragment 构建的 Android 运行时权限库。无需重写 `onRequestPermissionsResult`。
 
-- Coroutine-based permission requests (`suspend` functions)
-- Mutex-serialized requests for concurrency safety
-- Distinguishes between "denied" and "permanently denied (Don't ask again)"
-- Suspend rationale callback for custom UI
-- Activity/Fragment extension functions
-- Flow API for observing permission state changes
-- Built-in permission group constants (Android 13+ media, notifications, Bluetooth, etc.)
-- Safe app settings navigation with `resolveActivity` check
-- Activity state validation (isFinishing/isDestroyed)
+## 特性
 
-## Requirements
+- 基于协程的权限请求（`suspend` 函数）
+- 互斥锁序列化请求，保证并发安全
+- 区分"拒绝"和"永久拒绝（不再询问）"
+- 挂起式理由回调，支持自定义 UI
+- Activity/Fragment 扩展函数
+- Flow API，用于观察权限状态变化
+- 内置权限组常量（Android 13+ 媒体、通知、蓝牙等）
+- 安全的应用设置页导航，带 `resolveActivity` 检查
+- Activity 状态校验（isFinishing/isDestroyed）
+
+## 环境要求
 
 - **minSdk**: 24+
 - **Kotlin**: 2.0+
-- **Kotlin Coroutines**: 1.9+
+- **Kotlin 协程**: 1.9+
 - **AndroidX**: Activity 1.9+, Fragment 1.8+
 
-## Installation
+## 引入
 
 ```kotlin
 dependencies {
@@ -29,9 +31,9 @@ dependencies {
 }
 ```
 
-## Quick Start
+## 快速开始
 
-### Simple Request
+### 简单请求
 
 ```kotlin
 lifecycleScope.launch {
@@ -44,7 +46,7 @@ lifecycleScope.launch {
 }
 ```
 
-### Multiple Permissions
+### 多个权限
 
 ```kotlin
 lifecycleScope.launch {
@@ -54,16 +56,16 @@ lifecycleScope.launch {
         Manifest.permission.RECORD_AUDIO
     )
     if (result.isAllGranted) {
-        // All granted
+        // 全部已授权
     } else {
-        // Handle partial grant
+        // 处理部分授权
         val denied = result.denied
         val permanentlyDenied = result.permanentlyDenied
     }
 }
 ```
 
-### Using Permission Groups
+### 使用权限组
 
 ```kotlin
 lifecycleScope.launch {
@@ -72,7 +74,7 @@ lifecycleScope.launch {
 }
 ```
 
-### Request with Rationale
+### 带理由的请求
 
 ```kotlin
 lifecycleScope.launch {
@@ -80,10 +82,10 @@ lifecycleScope.launch {
         activity,
         Manifest.permission.CAMERA,
     ) { permissions ->
-        // This is a suspend function — show your rationale UI and return true/false
+        // 这是一个挂起函数 — 显示你的理由 UI 并返回 true/false
         showRationaleDialog(permissions)
     }
-    // result is null if user cancelled the rationale dialog
+    // 如果用户取消了理由对话框，result 为 null
     if (result != null && result.isAllGranted) {
         openCamera()
     }
@@ -102,24 +104,24 @@ private suspend fun showRationaleDialog(permissions: List<String>): Boolean {
 }
 ```
 
-### Extension Functions
+### 扩展函数
 
 ```kotlin
-// Callback-based request
+// 基于回调的请求
 requirePermissions(
     Manifest.permission.CAMERA,
     onGranted = { openCamera() },
     onDenied = { result -> handleDenial(result) }
 )
 
-// Check permissions
+// 检查权限
 val hasCamera = hasPermission(Manifest.permission.CAMERA)
 val hasAll = hasPermissions(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
 ```
 
 ### Flow API
 
-Observe permission state changes when the Activity resumes (e.g., after user returns from settings):
+在 Activity 恢复时观察权限状态变化（例如用户从设置页返回后）：
 
 ```kotlin
 lifecycleScope.launch {
@@ -129,142 +131,142 @@ lifecycleScope.launch {
 }
 ```
 
-### Check Permissions
+### 检查权限
 
 ```kotlin
 if (AwPermission.isGranted(context, Manifest.permission.CAMERA)) {
-    // Already granted
+    // 已授权
 }
 
 if (AwPermission.isAllGranted(context, Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)) {
-    // All granted
+    // 全部已授权
 }
 
 if (AwPermission.shouldShowRationale(activity, Manifest.permission.CAMERA)) {
-    // User denied once, show rationale before next request
+    // 用户曾拒绝过，下次请求前应展示理由
 }
 ```
 
-### Open App Settings
+### 打开应用设置
 
 ```kotlin
 val success = AwPermission.openAppSettings(context)
-// Returns false if the settings page cannot be opened (rare on custom ROMs)
+// 如果设置页无法打开则返回 false（在自定义 ROM 上偶发）
 ```
 
-## API Reference
+## API 参考
 
 ### AwPermission
 
-| Method | Description |
-|--------|-------------|
-| `isGranted(context, permission)` | Check if a single permission is granted |
-| `isAllGranted(context, vararg permissions)` | Check if all permissions are granted |
-| `shouldShowRationale(activity, permission)` | Check if rationale should be shown |
-| `request(activity, vararg permissions)` | Request permissions (suspend) |
-| `request(fragment, vararg permissions)` | Request permissions from Fragment (suspend) |
-| `requestWithRationale(activity, vararg permissions, rationale)` | Request with rationale (suspend, returns null if cancelled) |
-| `openAppSettings(context)` | Open app settings page, returns false if unavailable |
+| 方法 | 说明 |
+|------|------|
+| `isGranted(context, permission)` | 检查单个权限是否已授权 |
+| `isAllGranted(context, vararg permissions)` | 检查所有权限是否已授权 |
+| `shouldShowRationale(activity, permission)` | 检查是否应展示权限理由 |
+| `request(activity, vararg permissions)` | 请求权限（挂起函数） |
+| `request(fragment, vararg permissions)` | 从 Fragment 请求权限（挂起函数） |
+| `requestWithRationale(activity, vararg permissions, rationale)` | 带理由的请求（挂起函数，取消时返回 null） |
+| `openAppSettings(context)` | 打开应用设置页，不可用时返回 false |
 
 ### PermissionResult
 
-| Property | Description |
-|----------|-------------|
-| `granted` | List of granted permissions |
-| `denied` | List of denied permissions |
-| `permanentlyDenied` | List of permanently denied permissions |
-| `isAllGranted` | Whether all permissions are granted |
-| `hasDenied` | Whether any permission was denied |
-| `hasPermanentlyDenied` | Whether any permission was permanently denied |
-| `firstDenied` | First denied permission or null |
-| `firstPermanentlyDenied` | First permanently denied permission or null |
-| `status` | Overall status: `Granted`, `Denied`, or `PermanentlyDenied` |
+| 属性 | 说明 |
+|------|------|
+| `granted` | 已授权的权限列表 |
+| `denied` | 被拒绝的权限列表 |
+| `permanentlyDenied` | 被永久拒绝的权限列表 |
+| `isAllGranted` | 是否所有权限均已授权 |
+| `hasDenied` | 是否存在被拒绝的权限 |
+| `hasPermanentlyDenied` | 是否存在被永久拒绝的权限 |
+| `firstDenied` | 第一个被拒绝的权限，若没有则为 null |
+| `firstPermanentlyDenied` | 第一个被永久拒绝的权限，若没有则为 null |
+| `status` | 整体状态：`Granted`、`Denied` 或 `PermanentlyDenied` |
 
 ### PermissionGroups
 
-Pre-defined permission group constants:
+预定义的权限组常量：
 
-| Group | Permissions |
-|-------|------------|
+| 权限组 | 包含权限 |
+|--------|----------|
 | `CAMERA` | `Manifest.permission.CAMERA` |
 | `MICROPHONE` | `Manifest.permission.RECORD_AUDIO` |
 | `LOCATION` | `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` |
 | `CONTACTS` | `READ_CONTACTS`, `WRITE_CONTACTS`, `GET_ACCOUNTS` |
 | `STORAGE` | `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE` |
-| `PHONE` | `READ_PHONE_STATE`, `CALL_PHONE`, etc. |
+| `PHONE` | `READ_PHONE_STATE`, `CALL_PHONE` 等 |
 | `SENSORS` | `BODY_SENSORS` |
-| `SMS` | `SEND_SMS`, `RECEIVE_SMS`, etc. |
+| `SMS` | `SEND_SMS`, `RECEIVE_SMS` 等 |
 | `CALENDAR` | `READ_CALENDAR`, `WRITE_CALENDAR` |
-| `MEDIA_VISUAL` | `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO` (Android 13+) |
-| `MEDIA_AUDIO` | `READ_MEDIA_AUDIO` (Android 13+) |
-| `NOTIFICATIONS` | `POST_NOTIFICATIONS` (Android 13+) |
-| `NEARBY_DEVICES` | `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN`, `BLUETOOTH_ADVERTISE` (Android 12+) |
+| `MEDIA_VISUAL` | `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`（Android 13+） |
+| `MEDIA_AUDIO` | `READ_MEDIA_AUDIO`（Android 13+） |
+| `NOTIFICATIONS` | `POST_NOTIFICATIONS`（Android 13+） |
+| `NEARBY_DEVICES` | `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN`, `BLUETOOTH_ADVERTISE`（Android 12+） |
 
-### Extension Functions
+### 扩展函数
 
-| Function | Description |
-|----------|-------------|
-| `Context.hasPermission(permission)` | Check single permission |
-| `Context.hasPermissions(vararg permissions)` | Check all permissions |
-| `FragmentActivity.requestPermissions(vararg, callback)` | Callback-based request |
-| `Fragment.requestPermissions(vararg, callback)` | Callback-based request from Fragment |
-| `FragmentActivity.requirePermissions(vararg, onGranted, onDenied)` | Request with grant/deny handlers |
-| `Fragment.requirePermissions(vararg, onGranted, onDenied)` | Request from Fragment with handlers |
-| `FragmentActivity.observePermissions(vararg)` | Flow that emits on each Activity resume |
+| 函数 | 说明 |
+|------|------|
+| `Context.hasPermission(permission)` | 检查单个权限 |
+| `Context.hasPermissions(vararg permissions)` | 检查所有权限 |
+| `FragmentActivity.requestPermissions(vararg, callback)` | 基于回调的请求 |
+| `Fragment.requestPermissions(vararg, callback)` | 从 Fragment 基于回调的请求 |
+| `FragmentActivity.requirePermissions(vararg, onGranted, onDenied)` | 带授权/拒绝处理器的请求 |
+| `Fragment.requirePermissions(vararg, onGranted, onDenied)` | 从 Fragment 带处理器的请求 |
+| `FragmentActivity.observePermissions(vararg)` | 每次 Activity 恢复时发射的 Flow |
 
-## How It Works
+## 工作原理
 
-1. Each permission request creates a headless `PermissionFragment` instance
-2. The fragment uses `ActivityResultContracts.RequestMultiplePermissions()` to request permissions
-3. The calling coroutine is suspended via `suspendCancellableCoroutine`
-4. When the user responds, the coroutine resumes with the result
-5. The fragment automatically removes itself from the Activity
+1. 每次权限请求会创建一个无界面的 `PermissionFragment` 实例
+2. 该 Fragment 使用 `ActivityResultContracts.RequestMultiplePermissions()` 请求权限
+3. 调用方的协程通过 `suspendCancellableCoroutine` 挂起
+4. 当用户响应后，协程以结果恢复执行
+5. Fragment 自动从 Activity 中移除自身
 
-### Concurrency Safety
+### 并发安全
 
-All permission requests are serialized through a single `Mutex`. This ensures that:
-- Only one permission request is active at a time
-- No continuation is overwritten by concurrent requests
-- Requests are processed in FIFO order
+所有权限请求通过单个 `Mutex` 进行序列化。这确保了：
+- 同一时刻只有一个权限请求处于活跃状态
+- 不会因并发请求导致续体被覆盖
+- 请求按 FIFO（先进先出）顺序处理
 
-### Denied vs Permanently Denied
+### 拒绝 vs 永久拒绝
 
-The library uses `shouldShowRequestPermissionRationale` before and after the request to accurately classify denials:
+本库在请求前后使用 `shouldShowRequestPermissionRationale` 来准确分类拒绝类型：
 
-| Scenario | Before | After | Classification |
-|----------|--------|-------|---------------|
-| First time denied | `false` | `true` | Denied |
-| First time + "Don't ask again" | `false` | `false` | Denied* |
-| Subsequent denial | `true` | `true` | Denied |
-| "Don't ask again" selected | `true` | `false` | Permanently Denied |
+| 场景 | 请求前 | 请求后 | 分类 |
+|------|--------|--------|------|
+| 首次拒绝 | `false` | `true` | 拒绝 |
+| 首次 + 勾选"不再询问" | `false` | `false` | 拒绝* |
+| 后续拒绝 | `true` | `true` | 拒绝 |
+| 已勾选"不再询问" | `true` | `false` | 永久拒绝 |
 
-*\* On the very first request, if the user selects "Don't ask again", the library cannot distinguish this from a normal first-time denial. This is an Android platform limitation.*
+*\* 在首次请求时，如果用户选择了"不再询问"，本库无法将其与普通首次拒绝区分。这是 Android 平台的限制。*
 
-## FAQ
+## 常见问题
 
-### Can I use this in a DialogFragment?
+### 可以在 DialogFragment 中使用吗？
 
-Yes. Pass the DialogFragment's parent Activity:
+可以。传入 DialogFragment 的父 Activity：
 
 ```kotlin
 val result = AwPermission.require(requireActivity(), Manifest.permission.CAMERA)
 ```
 
-### Can I request permissions from a Service?
+### 可以从 Service 中请求权限吗？
 
-No. Android requires an Activity or Fragment to display the permission dialog. You should request permissions from an Activity and store the result.
+不可以。Android 要求通过 Activity 或 Fragment 来展示权限对话框。你应该在 Activity 中请求权限并存储结果。
 
-### What about custom ROM compatibility?
+### 自定义 ROM 兼容性如何？
 
-The library includes safety checks:
-- `openAppSettings()` uses `resolveActivity()` to verify the settings Intent can be handled
-- Activity state checks prevent crashes on finishing/destroyed Activities
-- `IllegalStateException` from the permission launcher is caught and propagated as cancellation
+本库包含以下安全检查：
+- `openAppSettings()` 使用 `resolveActivity()` 验证设置页 Intent 是否可被处理
+- Activity 状态检查防止在正在结束/已销毁的 Activity 上崩溃
+- 权限启动器抛出的 `IllegalStateException` 会被捕获并作为取消传播
 
-### How does the Flow API work?
+### Flow API 是如何工作的？
 
-`observePermissions()` creates a Flow that emits the current permission state every time the Activity resumes. This is useful for detecting when a user returns from the system settings page after granting/denying permissions.
+`observePermissions()` 创建一个 Flow，在每次 Activity 恢复时发射当前权限状态。这对于检测用户从系统设置页返回后授权/拒绝权限的情况非常有用。
 
-## License
+## 许可证
 
-Apache License 2.0, see [LICENSE](LICENSE).
+Apache License 2.0，详见 [LICENSE](LICENSE)。
