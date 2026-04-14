@@ -1,6 +1,6 @@
 # aw-permission
 
-[![](https://jitpack.io/v/answufeng/aw-permission.svg)](https://jitpack.io/#/answufeng/aw-permission)
+[![](https://jitpack.io/v/answufeng/aw-permission.svg)](https://jitpack.io/#answufeng/aw-permission)
 
 基于协程 + 隐藏 Fragment 构建的 Android 运行时权限库。无需重写 `onRequestPermissionsResult`。
 
