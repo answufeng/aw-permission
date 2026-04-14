@@ -1,10 +1,15 @@
 package com.answufeng.permission
 
+import android.app.AppOpsManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.os.Process
 import android.provider.Settings
+import androidx.annotation.CheckResult
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
@@ -16,9 +21,15 @@ import java.util.concurrent.atomic.AtomicLong
  * 基于协程 + 隐藏 Fragment 构建的 Android 运行时权限请求工具。
  *
  * ### 并发安全
- * - 所有权限请求通过单个 [Mutex] 进行序列化，防止并发请求覆盖续体
+ * - 所有权限请求（包括 rationale 展示）通过单个 [Mutex] 进行序列化
+ * - 同一时刻只有一个请求流程处于活跃状态，不会同时出现多个 rationale 对话框
  * - 每次请求创建独立的 [PermissionFragment] 实例，请求完成后自动移除
  * - 若 Activity 被销毁（如配置变更），挂起的协程会自动取消
+ *
+ * ### 国产 ROM 兼容
+ * - 通过 [PermissionDetector] 使用 AppOpsManager 增强永久拒绝检测
+ * - [openAppSettings] 支持华为/小米等国产 ROM 的多重 Intent 回退
+ * - 60 秒超时保护防止权限对话框异常关闭导致协程永久挂起
  *
  * ### 基本用法（在 Activity 中）
  * ```kotlin
@@ -39,11 +50,15 @@ import java.util.concurrent.atomic.AtomicLong
  *     Manifest.permission.CAMERA,
  *     Manifest.permission.RECORD_AUDIO
  * )
+ * // 查询单个权限状态
+ * if (result.isGranted(Manifest.permission.CAMERA)) { openCamera() }
  * ```
  *
  * ### 使用权限组
  * ```kotlin
  * val result = AwPermission.request(activity, *PermissionGroups.LOCATION)
+ * // 版本自适应（推荐）
+ * val result = AwPermission.request(activity, *PermissionGroups.storage())
  * ```
  *
  * ### 带理由的请求
@@ -52,15 +67,19 @@ import java.util.concurrent.atomic.AtomicLong
  *     activity,
  *     Manifest.permission.CAMERA,
  * ) { permissions ->
- *     showRationaleDialog(permissions) // 返回 Boolean 的挂起函数
+ *     showRationaleDialog(permissions)
  * }
+ * ```
+ *
+ * ### 从 Fragment 请求
+ * ```kotlin
+ * val result = AwPermission.request(fragment, Manifest.permission.CAMERA)
+ * val result = AwPermission.requestWithRationale(fragment, Manifest.permission.CAMERA) { ... }
  * ```
  *
  * ### 检查权限
  * ```kotlin
- * if (AwPermission.isGranted(context, Manifest.permission.CAMERA)) {
- *     // 已授权
- * }
+ * if (AwPermission.isGranted(context, Manifest.permission.CAMERA)) { ... }
  * ```
  *
  * ### 打开应用设置
@@ -113,9 +132,6 @@ object AwPermission {
     /**
      * 返回需要理由说明的权限列表。
      *
-     * 若用户之前拒绝过某权限且未勾选"不再询问"，该权限需要理由说明。
-     * 可用于确定哪些权限在再次请求前需要解释。
-     *
      * @param activity [FragmentActivity]
      * @param permissions 要检查的权限名称
      * @return 需要理由说明的权限列表
@@ -128,6 +144,8 @@ object AwPermission {
      * 请求运行时权限（挂起函数，用户响应后恢复）。
      *
      * 已授权的权限会自动跳过，仅向用户展示未授权的权限。
+     * 请求在 [Mutex] 保护下执行，保证并发安全。
+     * 永久拒绝检测通过 [PermissionDetector] 增强，兼容国产 ROM。
      *
      * @param activity 用于发起请求的 [FragmentActivity]
      * @param permissions 要请求的权限
@@ -135,57 +153,13 @@ object AwPermission {
      * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
      * @throws IllegalStateException 若 Activity 正在结束或已销毁
      */
+    @CheckResult
     suspend fun request(activity: FragmentActivity, vararg permissions: String): PermissionResult =
         mutex.withLock {
             require(permissions.isNotEmpty()) { "permissions must not be empty" }
             require(permissions.all { it.isNotBlank() }) { "permission names must not be blank" }
             checkActivityState(activity)
-
-            val alreadyGranted = mutableListOf<String>()
-            val needRequest = mutableListOf<String>()
-
-            for (permission in permissions) {
-                if (isGranted(activity, permission)) {
-                    alreadyGranted.add(permission)
-                } else {
-                    needRequest.add(permission)
-                }
-            }
-
-            if (needRequest.isEmpty()) {
-                return@withLock PermissionResult(granted = alreadyGranted, denied = emptyList(), permanentlyDenied = emptyList())
-            }
-
-            val rationaleStateBefore = needRequest.associateWith {
-                activity.shouldShowRequestPermissionRationale(it)
-            }
-
-            val fragment = PermissionFragment.create(activity)
-            val rawResult = fragment.requestPermissions(needRequest.toTypedArray())
-
-            val granted = mutableListOf<String>()
-            val denied = mutableListOf<String>()
-            val permanentlyDenied = mutableListOf<String>()
-
-            for ((permission, isGranted) in rawResult) {
-                if (isGranted) {
-                    granted.add(permission)
-                } else {
-                    val wasRationale = rationaleStateBefore[permission] == true
-                    val isRationale = activity.shouldShowRequestPermissionRationale(permission)
-                    when {
-                        isRationale -> denied.add(permission)
-                        wasRationale -> permanentlyDenied.add(permission)
-                        else -> denied.add(permission)
-                    }
-                }
-            }
-
-            PermissionResult(
-                granted = alreadyGranted + granted,
-                denied = denied,
-                permanentlyDenied = permanentlyDenied
-            )
+            requestInternal(activity, permissions)
         }
 
     /**
@@ -199,6 +173,7 @@ object AwPermission {
      * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
      * @throws IllegalStateException 若 Activity 正在结束或已销毁
      */
+    @CheckResult
     suspend fun request(fragment: Fragment, vararg permissions: String): PermissionResult {
         val activity = fragment.requireActivity()
         return request(activity, *permissions)
@@ -207,9 +182,8 @@ object AwPermission {
     /**
      * 带理由说明的权限请求。
      *
-     * 若指定权限中有需要理由说明的（即用户之前拒绝过），
-     * 会调用 [rationale] 挂起 Lambda，传入需要说明的权限列表。
-     * Lambda 返回 `true` 继续请求，返回 `false` 取消请求。
+     * 整个流程（包括 rationale 展示和权限请求）在 [Mutex] 保护下执行，
+     * 保证同一时刻不会有其他请求流程并发执行。
      *
      * @param activity 用于发起请求的 [FragmentActivity]
      * @param permissions 要请求的权限
@@ -219,43 +193,151 @@ object AwPermission {
      * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
      * @throws IllegalStateException 若 Activity 正在结束或已销毁
      */
+    @CheckResult
     suspend fun requestWithRationale(
         activity: FragmentActivity,
         vararg permissions: String,
         rationale: suspend (permissions: List<String>) -> Boolean
-    ): PermissionResult? {
+    ): PermissionResult? = mutex.withLock {
+        require(permissions.isNotEmpty()) { "permissions must not be empty" }
+        require(permissions.all { it.isNotBlank() }) { "permission names must not be blank" }
+        checkActivityState(activity)
+
         val needRationale = permissions.filter {
             !isGranted(activity, it) && activity.shouldShowRequestPermissionRationale(it)
         }
 
         if (needRationale.isNotEmpty()) {
             val shouldProceed = rationale(needRationale)
-            if (!shouldProceed) return null
+            if (!shouldProceed) return@withLock null
         }
 
-        return request(activity, *permissions)
+        requestInternal(activity, permissions)
+    }
+
+    /**
+     * 从 Fragment 带理由说明的权限请求。
+     *
+     * 委托给 Activity 版本的 [requestWithRationale]。
+     *
+     * @param fragment 用于发起请求的 [Fragment]
+     * @param permissions 要请求的权限
+     * @param rationale 接收需要理由说明的权限列表的挂起 Lambda
+     * @return 若请求继续则返回 [PermissionResult]，若用户取消则返回 `null`
+     */
+    @CheckResult
+    suspend fun requestWithRationale(
+        fragment: Fragment,
+        vararg permissions: String,
+        rationale: suspend (permissions: List<String>) -> Boolean
+    ): PermissionResult? {
+        val activity = fragment.requireActivity()
+        return requestWithRationale(activity, *permissions, rationale = rationale)
     }
 
     /**
      * 打开当前应用的系统设置页。
      *
-     * 用于引导用户手动授予被永久拒绝的权限。
+     * 支持国产 ROM 多重回退：标准设置页 → 华为安全中心 → 小米安全中心 → 最终回退。
      *
      * @param context 任意 [Context]
-     * @return 设置页成功打开返回 `true`，无法打开返回 `false`（自定义 ROM 上偶发）
+     * @return 设置页成功打开返回 `true`，无法打开返回 `false`
      */
     fun openAppSettings(context: Context): Boolean {
-        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-            data = Uri.fromParts("package", context.packageName, null)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intents = buildList {
+            add(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+            add(Intent().apply {
+                component = ComponentName(
+                    "com.huawei.systemmanager",
+                    "com.huawei.systemmanager.addviewmonitor.AddViewMonitorActivity"
+                )
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+            add(Intent().apply {
+                component = ComponentName(
+                    "com.miui.securitycenter",
+                    "com.miui.permcenter.permissions.PermissionsEditorActivity"
+                )
+                putExtra("extra_pkgname", context.packageName)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
         }
-        val resolved = intent.resolveActivity(context.packageManager)
-        return if (resolved != null) {
-            context.startActivity(intent)
+
+        for (intent in intents) {
+            try {
+                if (intent.resolveActivity(context.packageManager) != null) {
+                    context.startActivity(intent)
+                    return true
+                }
+            } catch (_: Exception) {
+                continue
+            }
+        }
+
+        return try {
+            val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(fallbackIntent)
             true
-        } else {
+        } catch (_: Exception) {
             false
         }
+    }
+
+    private suspend fun requestInternal(
+        activity: FragmentActivity,
+        permissions: Array<out String>
+    ): PermissionResult {
+        val alreadyGranted = mutableListOf<String>()
+        val needRequest = mutableListOf<String>()
+
+        for (permission in permissions) {
+            if (isGranted(activity, permission)) {
+                alreadyGranted.add(permission)
+            } else {
+                needRequest.add(permission)
+            }
+        }
+
+        if (needRequest.isEmpty()) {
+            return PermissionResult(granted = alreadyGranted, denied = emptyList(), permanentlyDenied = emptyList())
+        }
+
+        val rationaleStateBefore = needRequest.associateWith {
+            activity.shouldShowRequestPermissionRationale(it)
+        }
+
+        val fragment = PermissionFragment.create(activity)
+        val rawResult = fragment.requestPermissions(needRequest.toTypedArray())
+
+        val granted = mutableListOf<String>()
+        val denied = mutableListOf<String>()
+        val permanentlyDenied = mutableListOf<String>()
+
+        for ((permission, isGranted) in rawResult) {
+            if (isGranted) {
+                granted.add(permission)
+            } else {
+                val isPermDenied = PermissionDetector.isPermanentlyDenied(
+                    activity,
+                    permission,
+                    wasRationaleBefore = rationaleStateBefore[permission] == true,
+                    isRationaleAfter = activity.shouldShowRequestPermissionRationale(permission)
+                )
+                if (isPermDenied) permanentlyDenied.add(permission) else denied.add(permission)
+            }
+        }
+
+        return PermissionResult(
+            granted = alreadyGranted + granted,
+            denied = denied,
+            permanentlyDenied = permanentlyDenied
+        )
     }
 
     private fun checkActivityState(activity: FragmentActivity) {

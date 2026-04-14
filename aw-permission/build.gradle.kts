@@ -38,7 +38,7 @@ android {
 }
 
 dependencies {
-    api(libs.coroutines.core)
+    implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
     implementation(libs.core.ktx)
     implementation(libs.appcompat)

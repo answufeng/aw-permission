@@ -16,6 +16,9 @@ package com.answufeng.permission
  *     PermissionResult.Status.Denied -> showRetryDialog()
  *     PermissionResult.Status.PermanentlyDenied -> AwPermission.openAppSettings(context)
  * }
+ * // Query individual permission status
+ * if (result.isGranted(Manifest.permission.CAMERA)) { openCamera() }
+ * if (result.isPermanentlyDenied(Manifest.permission.RECORD_AUDIO)) { goToSettings() }
  * ```
  *
  * @param granted List of granted permission names
@@ -55,6 +58,18 @@ public data class PermissionResult(
 
     /** The first permanently denied permission, or `null` if none were permanently denied. */
     public val firstPermanentlyDenied: String? get() = permanentlyDenied.firstOrNull()
+
+    /** All denied permissions (denied + permanentlyDenied). */
+    public val allDenied: List<String> get() = denied + permanentlyDenied
+
+    /** Checks whether the specified permission was granted. */
+    public fun isGranted(permission: String): Boolean = permission in granted
+
+    /** Checks whether the specified permission was denied (but not permanently). */
+    public fun isDenied(permission: String): Boolean = permission in denied
+
+    /** Checks whether the specified permission was permanently denied. */
+    public fun isPermanentlyDenied(permission: String): Boolean = permission in permanentlyDenied
 
     override fun toString(): String {
         return "PermissionResult(granted=$granted, denied=$denied, permanentlyDenied=$permanentlyDenied, status=$status)"

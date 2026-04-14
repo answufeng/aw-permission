@@ -1,6 +1,7 @@
 package com.answufeng.permission
 
 import android.Manifest
+import android.os.Build
 
 /**
  * Pre-defined permission group constants for common Android permission sets.
@@ -10,11 +11,23 @@ import android.Manifest
  * val result = AwPermission.request(activity, *PermissionGroups.LOCATION)
  * ```
  *
+ * ### Version-Adaptive Functions (Recommended)
+ * ```kotlin
+ * // Automatically selects the correct permissions based on API level
+ * val result = AwPermission.request(activity, *PermissionGroups.storage())
+ * val result = AwPermission.request(activity, *PermissionGroups.location())
+ * ```
+ *
  * ### Android Version Notes
- * - [STORAGE] is deprecated on Android 13+ (API 33). Use [MEDIA_VISUAL] and [MEDIA_AUDIO] instead.
+ * - [STORAGE] is deprecated on Android 13+ (API 33). Use [storage()] or [MEDIA_VISUAL] and [MEDIA_AUDIO] instead.
  * - [NOTIFICATIONS] requires Android 13+ (API 33).
  * - [NEARBY_DEVICES] requires Android 12+ (API 31).
  * - [MEDIA_VISUAL] and [MEDIA_AUDIO] require Android 13+ (API 33).
+ * - [MEDIA_PARTIAL] requires Android 14+ (API 34).
+ * - [SENSORS_BACKGROUND] requires Android 13+ (API 33).
+ * - [ACTIVITY_RECOGNITION] requires Android 10+ (API 29).
+ * - [BACKGROUND_LOCATION] requires Android 10+ (API 29).
+ * - [NEARBY_WIFI] requires Android 13+ (API 33).
  */
 public object PermissionGroups {
 
@@ -44,7 +57,7 @@ public object PermissionGroups {
     /**
      * Storage permissions (read and write external storage).
      *
-     * Deprecated on Android 13+ (API 33). Use [MEDIA_VISUAL] and [MEDIA_AUDIO] instead.
+     * Deprecated on Android 13+ (API 33). Use [storage()] instead.
      */
     @JvmField
     @Suppress("DEPRECATION")
@@ -119,4 +132,65 @@ public object PermissionGroups {
         Manifest.permission.BLUETOOTH_SCAN,
         Manifest.permission.BLUETOOTH_ADVERTISE
     )
+
+    /** Android 10+ (API 29) activity recognition permission. */
+    @JvmField
+    public val ACTIVITY_RECOGNITION: Array<String> = arrayOf(
+        Manifest.permission.ACTIVITY_RECOGNITION
+    )
+
+    /** Android 10+ (API 29) background location permission. */
+    @JvmField
+    public val BACKGROUND_LOCATION: Array<String> = arrayOf(
+        Manifest.permission.ACCESS_BACKGROUND_LOCATION
+    )
+
+    /** Android 13+ (API 33) nearby WiFi devices permission. */
+    @JvmField
+    public val NEARBY_WIFI: Array<String> = arrayOf(
+        Manifest.permission.NEARBY_WIFI_DEVICES
+    )
+
+    /** Android 14+ (API 34) partial media access permission (user selects specific photos/videos). */
+    @JvmField
+    public val MEDIA_PARTIAL: Array<String> = arrayOf(
+        Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+    )
+
+    /** Android 13+ (API 33) background body sensors permission. */
+    @JvmField
+    public val SENSORS_BACKGROUND: Array<String> = arrayOf(
+        Manifest.permission.BODY_SENSORS_BACKGROUND
+    )
+
+    /**
+     * Version-adaptive storage permissions.
+     *
+     * Returns [MEDIA_VISUAL] + [MEDIA_AUDIO] on Android 13+ (API 33),
+     * or [STORAGE] on earlier versions.
+     *
+     * This is the recommended way to request storage/media permissions.
+     */
+    public fun storage(): Array<String> {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            MEDIA_VISUAL + MEDIA_AUDIO
+        } else {
+            STORAGE
+        }
+    }
+
+    /**
+     * Version-adaptive location permissions.
+     *
+     * On Android 12+ (API 31), returns only `ACCESS_FINE_LOCATION` because
+     * the system automatically handles the coarse location downgrade.
+     * On earlier versions, returns [LOCATION] (fine + coarse).
+     */
+    public fun location(): Array<String> {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        } else {
+            LOCATION
+        }
+    }
 }

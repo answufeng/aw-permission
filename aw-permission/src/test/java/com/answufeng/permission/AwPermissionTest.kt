@@ -189,4 +189,49 @@ class AwPermissionTest {
     fun `PermissionGroups SENSORS contains BODY_SENSORS`() {
         assertTrue(PermissionGroups.SENSORS.contains(Manifest.permission.BODY_SENSORS))
     }
+
+    @Test
+    fun `PermissionGroups ACTIVITY_RECOGNITION contains expected permission`() {
+        assertTrue(PermissionGroups.ACTIVITY_RECOGNITION.contains(Manifest.permission.ACTIVITY_RECOGNITION))
+    }
+
+    @Test
+    fun `PermissionGroups BACKGROUND_LOCATION contains expected permission`() {
+        assertTrue(PermissionGroups.BACKGROUND_LOCATION.contains(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
+    }
+
+    @Test
+    fun `PermissionGroups NEARBY_WIFI contains expected permission`() {
+        assertTrue(PermissionGroups.NEARBY_WIFI.contains(Manifest.permission.NEARBY_WIFI_DEVICES))
+    }
+
+    @Test
+    fun `PermissionGroups MEDIA_PARTIAL contains expected permission`() {
+        assertTrue(PermissionGroups.MEDIA_PARTIAL.contains(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED))
+    }
+
+    @Test
+    fun `PermissionGroups SENSORS_BACKGROUND contains expected permission`() {
+        assertTrue(PermissionGroups.SENSORS_BACKGROUND.contains(Manifest.permission.BODY_SENSORS_BACKGROUND))
+    }
+
+    @Test
+    fun `PermissionGroups storage returns STORAGE on API 28`() {
+        val result = PermissionGroups.storage()
+        assertTrue(result.contains(Manifest.permission.READ_EXTERNAL_STORAGE))
+        assertTrue(result.contains(Manifest.permission.WRITE_EXTERNAL_STORAGE))
+    }
+
+    @Test
+    fun `PermissionGroups location returns LOCATION on API 28`() {
+        val result = PermissionGroups.location()
+        assertTrue(result.contains(Manifest.permission.ACCESS_FINE_LOCATION))
+        assertTrue(result.contains(Manifest.permission.ACCESS_COARSE_LOCATION))
+    }
+
+    @Test
+    fun `PermissionDetector isProblematicRom returns boolean`() {
+        val result = PermissionDetector.isProblematicRom()
+        assertNotNull(result)
+    }
 }

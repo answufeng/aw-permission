@@ -167,7 +167,7 @@ class PermissionResultTest {
     }
 
     @Test
-    fun `status is Denied when both denied and permanentlyDenied exist`() {
+    fun `status is PermanentlyDenied when both denied and permanentlyDenied exist`() {
         val result = PermissionResult(
             granted = emptyList(),
             denied = listOf("CAMERA"),
@@ -189,5 +189,70 @@ class PermissionResultTest {
     @Test
     fun `Status PermanentlyDenied toString`() {
         assertEquals("PermanentlyDenied", PermissionResult.Status.PermanentlyDenied.toString())
+    }
+
+    @Test
+    fun `isGranted returns true for granted permission`() {
+        val result = PermissionResult(
+            granted = listOf("CAMERA", "STORAGE"),
+            denied = listOf("LOCATION"),
+            permanentlyDenied = emptyList()
+        )
+        assertTrue(result.isGranted("CAMERA"))
+        assertTrue(result.isGranted("STORAGE"))
+    }
+
+    @Test
+    fun `isGranted returns false for non-granted permission`() {
+        val result = PermissionResult(
+            granted = listOf("CAMERA"),
+            denied = listOf("LOCATION"),
+            permanentlyDenied = emptyList()
+        )
+        assertFalse(result.isGranted("LOCATION"))
+    }
+
+    @Test
+    fun `isDenied returns true for denied permission`() {
+        val result = PermissionResult(
+            granted = listOf("CAMERA"),
+            denied = listOf("STORAGE"),
+            permanentlyDenied = listOf("LOCATION")
+        )
+        assertTrue(result.isDenied("STORAGE"))
+        assertFalse(result.isDenied("CAMERA"))
+        assertFalse(result.isDenied("LOCATION"))
+    }
+
+    @Test
+    fun `isPermanentlyDenied returns true for permanently denied permission`() {
+        val result = PermissionResult(
+            granted = listOf("CAMERA"),
+            denied = listOf("STORAGE"),
+            permanentlyDenied = listOf("LOCATION")
+        )
+        assertTrue(result.isPermanentlyDenied("LOCATION"))
+        assertFalse(result.isPermanentlyDenied("STORAGE"))
+        assertFalse(result.isPermanentlyDenied("CAMERA"))
+    }
+
+    @Test
+    fun `allDenied combines denied and permanentlyDenied`() {
+        val result = PermissionResult(
+            granted = listOf("CAMERA"),
+            denied = listOf("STORAGE"),
+            permanentlyDenied = listOf("LOCATION")
+        )
+        assertEquals(listOf("STORAGE", "LOCATION"), result.allDenied)
+    }
+
+    @Test
+    fun `allDenied is empty when all granted`() {
+        val result = PermissionResult(
+            granted = listOf("CAMERA"),
+            denied = emptyList(),
+            permanentlyDenied = emptyList()
+        )
+        assertTrue(result.allDenied.isEmpty())
     }
 }

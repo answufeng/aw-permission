@@ -7,8 +7,12 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.answufeng.permission.AwPermission
+import com.answufeng.permission.PermissionGroups
 import com.answufeng.permission.hasPermission
 import com.answufeng.permission.observePermissions
+import com.answufeng.permission.requestPermissions
+import com.answufeng.permission.requestPermissionsResult
+import com.answufeng.permission.requestPermissionsResultWithRationale
 import com.answufeng.permission.requirePermissions
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -40,6 +44,10 @@ class MainActivity : AppCompatActivity() {
             requestWithRationale()
         }
 
+        findViewById<com.google.android.material.button.MaterialButton>(R.id.btnDslRequest).setOnClickListener {
+            dslRequest()
+        }
+
         findViewById<com.google.android.material.button.MaterialButton>(R.id.btnCheckPermission).setOnClickListener {
             checkPermission()
         }
@@ -50,7 +58,7 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             observePermissions(Manifest.permission.CAMERA).collect { result ->
-                log("[Flow] Camera permission: granted=${result.granted}, denied=${result.denied}")
+                log("[Flow] Camera: granted=${result.granted}, denied=${result.denied}, permanentlyDenied=${result.permanentlyDenied}")
             }
         }
     }
@@ -59,6 +67,9 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val result = AwPermission.request(this@MainActivity, Manifest.permission.CAMERA)
             log("Camera: granted=${result.granted}, denied=${result.denied}, permanent=${result.permanentlyDenied}")
+            if (result.isGranted(Manifest.permission.CAMERA)) {
+                log("Camera is granted!")
+            }
             if (result.hasPermanentlyDenied) {
                 log("Camera permanently denied, please go to settings to enable")
             }
@@ -69,7 +80,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val result = AwPermission.request(
                 this@MainActivity,
-                *com.answufeng.permission.PermissionGroups.LOCATION
+                *PermissionGroups.location()
             )
             log("Location: allGranted=${result.isAllGranted}, status=${result.status}")
         }
@@ -92,8 +103,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestWithRationale() {
         lifecycleScope.launch {
-            val result = AwPermission.requestWithRationale(
-                activity = this@MainActivity,
+            val result = requestPermissionsResultWithRationale(
                 Manifest.permission.CAMERA,
             ) { permissions ->
                 showRationaleDialog(permissions)
@@ -104,6 +114,44 @@ class MainActivity : AppCompatActivity() {
                 log("User cancelled rationale dialog")
             }
         }
+    }
+
+    private fun dslRequest() {
+        lifecycleScope.launch {
+            val result = requestPermissions {
+                permission(Manifest.permission.CAMERA)
+                permissionGroup(PermissionGroups.LOCATION)
+                rationale { permissions ->
+                    showRationaleDialog(permissions)
+                }
+            }
+            if (result != null) {
+                log("DSL result: allGranted=${result.isAllGranted}, status=${result.status}")
+                if (result.isGranted(Manifest.permission.CAMERA)) {
+                    log("  Camera: granted")
+                }
+                if (result.isPermanentlyDenied(Manifest.permission.ACCESS_FINE_LOCATION)) {
+                    log("  Location: permanently denied")
+                }
+            } else {
+                log("DSL: user cancelled rationale")
+            }
+        }
+    }
+
+    private fun checkPermission() {
+        val hasCamera = hasPermission(Manifest.permission.CAMERA)
+        log("Camera permission: $hasCamera")
+
+        lifecycleScope.launch {
+            val result = requestPermissionsResult(Manifest.permission.CAMERA)
+            log("Suspend result: ${result.status}")
+        }
+    }
+
+    private fun openSettings() {
+        val success = AwPermission.openAppSettings(this)
+        log("Open settings: $success")
     }
 
     private suspend fun showRationaleDialog(permissions: List<String>): Boolean {
@@ -117,16 +165,6 @@ class MainActivity : AppCompatActivity() {
                 .show()
             cont.invokeOnCancellation { dialog.dismiss() }
         }
-    }
-
-    private fun checkPermission() {
-        val hasCamera = hasPermission(Manifest.permission.CAMERA)
-        log("Camera permission: $hasCamera")
-    }
-
-    private fun openSettings() {
-        val success = AwPermission.openAppSettings(this)
-        log("Open settings: $success")
     }
 
     private fun log(msg: String) {
