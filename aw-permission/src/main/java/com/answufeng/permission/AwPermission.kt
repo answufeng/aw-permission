@@ -13,17 +13,14 @@ import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Android runtime permission request utility built on coroutines + hidden Fragment.
+ * 基于协程 + 隐藏 Fragment 构建的 Android 运行时权限请求工具。
  *
- * ### Concurrency Safety
- * - All permission requests are serialized through a single [Mutex], preventing
- *   concurrent requests from overwriting each other's continuation.
- * - Each request creates an independent [PermissionFragment] instance that is
- *   automatically removed after the request completes.
- * - If the Activity is destroyed (e.g., configuration change), the suspended
- *   coroutine is cancelled automatically.
+ * ### 并发安全
+ * - 所有权限请求通过单个 [Mutex] 进行序列化，防止并发请求覆盖续体
+ * - 每次请求创建独立的 [PermissionFragment] 实例，请求完成后自动移除
+ * - 若 Activity 被销毁（如配置变更），挂起的协程会自动取消
  *
- * ### Basic Usage (in Activity)
+ * ### 基本用法（在 Activity 中）
  * ```kotlin
  * lifecycleScope.launch {
  *     val result = AwPermission.request(this@MainActivity, Manifest.permission.CAMERA)
@@ -35,7 +32,7 @@ import java.util.concurrent.atomic.AtomicLong
  * }
  * ```
  *
- * ### Multiple Permissions
+ * ### 多个权限
  * ```kotlin
  * val result = AwPermission.request(
  *     activity,
@@ -44,103 +41,101 @@ import java.util.concurrent.atomic.AtomicLong
  * )
  * ```
  *
- * ### Using Permission Groups
+ * ### 使用权限组
  * ```kotlin
  * val result = AwPermission.request(activity, *PermissionGroups.LOCATION)
  * ```
  *
- * ### Request with Rationale
+ * ### 带理由的请求
  * ```kotlin
  * val result = AwPermission.requestWithRationale(
  *     activity,
  *     Manifest.permission.CAMERA,
  * ) { permissions ->
- *     showRationaleDialog(permissions) // suspend function returning Boolean
+ *     showRationaleDialog(permissions) // 返回 Boolean 的挂起函数
  * }
  * ```
  *
- * ### Check Permission
+ * ### 检查权限
  * ```kotlin
  * if (AwPermission.isGranted(context, Manifest.permission.CAMERA)) {
- *     // Already granted
+ *     // 已授权
  * }
  * ```
  *
- * ### Open App Settings
+ * ### 打开应用设置
  * ```kotlin
  * val success = AwPermission.openAppSettings(context)
  * ```
  */
-public object AwPermission {
+object AwPermission {
 
     internal val tagCounter: AtomicLong = AtomicLong(0)
 
     private val mutex = Mutex()
 
     /**
-     * Checks whether a single permission has been granted.
+     * 检查单个权限是否已授权。
      *
-     * @param context Any [Context]
-     * @param permission The permission name (e.g., `Manifest.permission.CAMERA`)
-     * @return `true` if the permission is granted, `false` otherwise
+     * @param context 任意 [Context]
+     * @param permission 权限名称（如 `Manifest.permission.CAMERA`）
+     * @return 已授权返回 `true`，否则返回 `false`
      */
-    public fun isGranted(context: Context, permission: String): Boolean {
+    fun isGranted(context: Context, permission: String): Boolean {
         return ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
     }
 
     /**
-     * Checks whether all specified permissions have been granted.
+     * 检查所有指定权限是否已授权。
      *
-     * @param context Any [Context]
-     * @param permissions The permission names to check
-     * @return `true` if all permissions are granted, `false` otherwise
+     * @param context 任意 [Context]
+     * @param permissions 要检查的权限名称
+     * @return 全部已授权返回 `true`，否则返回 `false`
      */
-    public fun isAllGranted(context: Context, vararg permissions: String): Boolean {
+    fun isAllGranted(context: Context, vararg permissions: String): Boolean {
         return permissions.all { isGranted(context, it) }
     }
 
     /**
-     * Checks whether the system should show a permission rationale for a single permission.
+     * 检查系统是否应为某个权限展示理由说明。
      *
-     * Returns `true` if the user has previously denied this permission (without selecting
-     * "Don't ask again"), indicating that you should show a rationale before requesting again.
+     * 若用户之前拒绝过该权限（未勾选"不再询问"），返回 `true`，
+     * 表示应在再次请求前展示理由。
      *
-     * @param activity The [FragmentActivity]
-     * @param permission The permission name to check
-     * @return `true` if rationale should be shown, `false` otherwise
+     * @param activity [FragmentActivity]
+     * @param permission 要检查的权限名称
+     * @return 应展示理由返回 `true`，否则返回 `false`
      */
-    public fun shouldShowRationale(activity: FragmentActivity, permission: String): Boolean {
+    fun shouldShowRationale(activity: FragmentActivity, permission: String): Boolean {
         return activity.shouldShowRequestPermissionRationale(permission)
     }
 
     /**
-     * Returns the list of permissions from the input that require a rationale explanation.
+     * 返回需要理由说明的权限列表。
      *
-     * A permission requires rationale if the user has previously denied it without selecting
-     * "Don't ask again". Use this to determine which permissions need explanation before
-     * requesting them again.
+     * 若用户之前拒绝过某权限且未勾选"不再询问"，该权限需要理由说明。
+     * 可用于确定哪些权限在再次请求前需要解释。
      *
-     * @param activity The [FragmentActivity]
-     * @param permissions The permission names to check
-     * @return List of permissions that require rationale
+     * @param activity [FragmentActivity]
+     * @param permissions 要检查的权限名称
+     * @return 需要理由说明的权限列表
      */
-    public fun permissionsRequiringRationale(activity: FragmentActivity, vararg permissions: String): List<String> {
+    fun permissionsRequiringRationale(activity: FragmentActivity, vararg permissions: String): List<String> {
         return permissions.filter { activity.shouldShowRequestPermissionRationale(it) }
     }
 
     /**
-     * Requests runtime permissions (suspend function that resumes when the user responds).
+     * 请求运行时权限（挂起函数，用户响应后恢复）。
      *
-     * Already-granted permissions are automatically skipped; only ungranted permissions
-     * are presented to the user.
+     * 已授权的权限会自动跳过，仅向用户展示未授权的权限。
      *
-     * @param activity The [FragmentActivity] to use for the request
-     * @param permissions The permissions to request
-     * @return [PermissionResult] containing the granted, denied, and permanently denied permissions
-     * @throws IllegalArgumentException if [permissions] is empty or contains blank strings
-     * @throws IllegalStateException if the Activity is finishing or destroyed
+     * @param activity 用于发起请求的 [FragmentActivity]
+     * @param permissions 要请求的权限
+     * @return [PermissionResult]，包含已授权、被拒绝和被永久拒绝的权限
+     * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
+     * @throws IllegalStateException 若 Activity 正在结束或已销毁
      */
-    public suspend fun request(activity: FragmentActivity, vararg permissions: String): PermissionResult =
+    suspend fun request(activity: FragmentActivity, vararg permissions: String): PermissionResult =
         mutex.withLock {
             require(permissions.isNotEmpty()) { "permissions must not be empty" }
             require(permissions.all { it.isNotBlank() }) { "permission names must not be blank" }
@@ -194,39 +189,37 @@ public object AwPermission {
         }
 
     /**
-     * Requests runtime permissions from a Fragment.
+     * 从 Fragment 请求运行时权限。
      *
-     * Delegates to [request] using the Fragment's host Activity.
+     * 委托给 [request]，使用 Fragment 的宿主 Activity。
      *
-     * @param fragment The [Fragment] to use for the request
-     * @param permissions The permissions to request
-     * @return [PermissionResult] containing the request outcome
-     * @throws IllegalArgumentException if [permissions] is empty or contains blank strings
-     * @throws IllegalStateException if the Activity is finishing or destroyed
+     * @param fragment 用于发起请求的 [Fragment]
+     * @param permissions 要请求的权限
+     * @return [PermissionResult]，包含请求结果
+     * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
+     * @throws IllegalStateException 若 Activity 正在结束或已销毁
      */
-    public suspend fun request(fragment: Fragment, vararg permissions: String): PermissionResult {
+    suspend fun request(fragment: Fragment, vararg permissions: String): PermissionResult {
         val activity = fragment.requireActivity()
         return request(activity, *permissions)
     }
 
     /**
-     * Requests permissions with a rationale explanation.
+     * 带理由说明的权限请求。
      *
-     * If any of the specified permissions require a rationale (i.e., the user has previously
-     * denied them), the [rationale] suspend lambda is called with the list of permissions
-     * needing explanation. Return `true` from the lambda to proceed with the request,
-     * or `false` to cancel.
+     * 若指定权限中有需要理由说明的（即用户之前拒绝过），
+     * 会调用 [rationale] 挂起 Lambda，传入需要说明的权限列表。
+     * Lambda 返回 `true` 继续请求，返回 `false` 取消请求。
      *
-     * @param activity The [FragmentActivity] to use for the request
-     * @param permissions The permissions to request
-     * @param rationale A suspend lambda that receives the permissions needing rationale.
-     *                  Return `true` to proceed with the request, `false` to cancel.
-     * @return [PermissionResult] if the request proceeded, or `null` if the user cancelled
-     *         the rationale dialog
-     * @throws IllegalArgumentException if [permissions] is empty or contains blank strings
-     * @throws IllegalStateException if the Activity is finishing or destroyed
+     * @param activity 用于发起请求的 [FragmentActivity]
+     * @param permissions 要请求的权限
+     * @param rationale 接收需要理由说明的权限列表的挂起 Lambda。
+     *                  返回 `true` 继续请求，返回 `false` 取消。
+     * @return 若请求继续则返回 [PermissionResult]，若用户取消理由对话框则返回 `null`
+     * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
+     * @throws IllegalStateException 若 Activity 正在结束或已销毁
      */
-    public suspend fun requestWithRationale(
+    suspend fun requestWithRationale(
         activity: FragmentActivity,
         vararg permissions: String,
         rationale: suspend (permissions: List<String>) -> Boolean
@@ -244,15 +237,14 @@ public object AwPermission {
     }
 
     /**
-     * Opens the system application settings page for the current app.
+     * 打开当前应用的系统设置页。
      *
-     * Use this to guide users to manually grant permissions that have been permanently denied.
+     * 用于引导用户手动授予被永久拒绝的权限。
      *
-     * @param context Any [Context]
-     * @return `true` if the settings page was successfully opened, `false` if no Activity
-     *         could handle the Intent (rare, possible on custom ROMs)
+     * @param context 任意 [Context]
+     * @return 设置页成功打开返回 `true`，无法打开返回 `false`（自定义 ROM 上偶发）
      */
-    public fun openAppSettings(context: Context): Boolean {
+    fun openAppSettings(context: Context): Boolean {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.fromParts("package", context.packageName, null)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

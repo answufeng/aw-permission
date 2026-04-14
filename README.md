@@ -26,6 +26,14 @@
 ## 引入
 
 ```kotlin
+// settings.gradle.kts
+dependencyResolutionManagement {
+    repositories {
+        maven { url = uri("https://jitpack.io") }
+    }
+}
+
+// app/build.gradle.kts
 dependencies {
     implementation("com.github.answufeng:aw-permission:1.0.0")
 }
