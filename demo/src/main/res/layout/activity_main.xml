@@ -1,159 +1,248 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FAFAFA"
-    android:fillViewport="true">
+    android:background="?android:attr/colorBackground">
 
-    <LinearLayout
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:background="@android:color/transparent"
+        android:elevation="0dp">
 
-        <!-- 标题 -->
-        <TextView
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:text="🔒 aw-permission 权限库演示"
-            android:textColor="#212121"
-            android:textSize="22sp"
-            android:textStyle="bold" />
+            android:layout_height="?attr/actionBarSize"
+            android:background="?android:attr/colorPrimary"
+            app:title="🔒 aw-permission 权限库"
+            app:titleTextColor="@android:color/white"
+            app:navigationIcon="@drawable/ic_security" />
 
-        <!-- 副标题 -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:text="协程权限请求 · 隐藏Fragment · 永久拒绝检测 · 国产ROM兼容"
-            android:textColor="#9E9E9E"
-            android:textSize="13sp"
-            android:layout_marginBottom="12dp" />
+    </com.google.android.material.appbar.AppBarLayout>
 
-        <!-- 日志区域 -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginBottom="16dp">
+            android:padding="16dp">
 
-            <TextView
+            <!-- 基本权限卡片 -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="#1976D2"
-                android:padding="8dp"
-                android:text="📋 操作日志"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
 
-            <ScrollView
-                android:id="@+id/logScrollView"
-                android:layout_width="match_parent"
-                android:layout_height="160dp"
-                android:background="#FFFFFF">
-
-                <TextView
-                    android:id="@+id/tvLog"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:padding="8dp"
-                    android:text="等待操作...\n"
-                    android:textColor="#333333"
-                    android:textSize="13sp"
-                    android:fontFamily="monospace" />
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-            </ScrollView>
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="📱 基本权限"
+                        android:textColor="?android:attr/colorPrimary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:drawablePadding="8dp"
+                        android:drawableStart="@drawable/ic_permission"
+                        android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="基础的权限请求功能，支持相机、定位、录音等常用权限的协程请求"
+                        android:textColor="#666666"
+                        android:textSize="14sp"
+                        android:layout_marginBottom="16dp"
+                        android:lineSpacingExtra="4dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnCamera"
+                            style="@style/MaterialButton.Outlined"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="相机权限"
+                            android:layout_marginEnd="8dp" />
+
+                        <Button
+                            android:id="@+id/btnLocation"
+                            style="@style/MaterialButton.Outlined"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="定位权限" />
+
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/btnMultiple"
+                        style="@style/MaterialButton.Outlined"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:text="多个权限请求"
+                        android:layout_marginTop="8dp" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 高级功能卡片 -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="⚡ 高级功能"
+                        android:textColor="?android:attr/colorPrimary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:drawablePadding="8dp"
+                        android:drawableStart="@drawable/ic_advanced"
+                        android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="带说明的权限请求、DSL风格请求、权限状态检查、设置页面跳转等高级功能"
+                        android:textColor="#666666"
+                        android:textSize="14sp"
+                        android:layout_marginBottom="16dp"
+                        android:lineSpacingExtra="4dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnRationale"
+                            style="@style/MaterialButton.Outlined"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="带说明请求"
+                            android:layout_marginEnd="8dp" />
+
+                        <Button
+                            android:id="@+id/btnDsl"
+                            style="@style/MaterialButton.Outlined"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="DSL风格" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="8dp">
+
+                        <Button
+                            android:id="@+id/btnCheck"
+                            style="@style/MaterialButton.Outlined"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="权限检查"
+                            android:layout_marginEnd="8dp" />
+
+                        <Button
+                            android:id="@+id/btnSettings"
+                            style="@style/MaterialButton.Outlined"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="设置页面" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 操作日志卡片 -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="📋 操作日志"
+                        android:textColor="#FF9800"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:drawablePadding="8dp"
+                        android:drawableStart="@drawable/ic_logs"
+                        android:layout_marginBottom="12dp" />
+
+                    <ScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="200dp"
+                        android:background="#F8F9FA"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:id="@+id/tvLog"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="操作日志将显示在这里...\n点击上方按钮开始测试权限功能"
+                            android:textColor="#333333"
+                            android:textSize="13sp"
+                            android:fontFamily="monospace"
+                            android:lineSpacingExtra="4dp" />
+
+                    </ScrollView>
+
+                    <Button
+                        android:id="@+id/btnClearLog"
+                        style="@style/MaterialButton.Text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:layout_gravity="end"
+                        android:text="清除日志"
+                        android:layout_marginTop="12dp" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
-        <!-- 基本权限请求 -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="📱 基本权限请求"
-            android:textColor="#424242"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
-
-        <Button
-            android:id="@+id/btnCamera"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="请求 相机权限"
-            android:layout_marginBottom="8dp" />
-
-        <Button
-            android:id="@+id/btnLocation"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="请求 定位权限(精确定位)"
-            android:layout_marginBottom="8dp" />
-
-        <Button
-            android:id="@+id/btnMultiple"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="请求 多个权限(相机+录音)"
-            android:layout_marginBottom="16dp" />
-
-        <!-- 高级功能 -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="⚡ 高级功能"
-            android:textColor="#424242"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
-
-        <Button
-            android:id="@+id/btnRationale"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="带 说明的权限请求"
-            android:layout_marginBottom="8dp" />
-
-        <Button
-            android:id="@+id/btnDsl"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="DSL 风格权限请求"
-            android:layout_marginBottom="8dp" />
-
-        <Button
-            android:id="@+id/btnCheck"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="检查 权限状态"
-            android:layout_marginBottom="8dp" />
-
-        <Button
-            android:id="@+id/btnSettings"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="打开 应用设置页面"
-            android:layout_marginBottom="16dp" />
-
-        <!-- 管理 -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="🔧 管理"
-            android:textColor="#424242"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
-
-        <Button
-            android:id="@+id/btnClearLog"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="🗑️ 清除日志"
-            android:layout_marginBottom="8dp" />
-
-    </LinearLayout>
-
-</ScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
