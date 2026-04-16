@@ -1,0 +1,9 @@
+<resources>
+    <style name="MaterialButton.Outlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="cornerRadius">8dp</item>
+    </style>
+
+    <style name="MaterialButton.Text" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="cornerRadius">8dp</item>
+    </style>
+</resources>
