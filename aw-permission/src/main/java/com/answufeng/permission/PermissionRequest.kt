@@ -10,16 +10,19 @@ import androidx.fragment.app.FragmentActivity
  * val result = buildPermissionRequest {
  *     permission(Manifest.permission.CAMERA)
  *     permissionGroup(PermissionGroups.LOCATION)
+ *     strategy(RationaleStrategy.OnDenied)
  *     rationale { permissions -> showRationaleDialog(permissions) }
  * }
  * ```
  *
  * @property permissions 要请求的权限名称列表
  * @property rationale 可选的挂起 Lambda，用于在请求前展示权限理由说明
+ * @property strategy rationale 触发策略，默认 [RationaleStrategy.OnShouldShow]
  */
 public class PermissionRequest internal constructor(
     public val permissions: List<String>,
-    public val rationale: (suspend (List<String>) -> Boolean)?
+    public val rationale: (suspend (List<String>) -> Boolean)?,
+    public val strategy: RationaleStrategy
 ) {
     /**
      * DSL 风格的 [PermissionRequest] 构建器。
@@ -27,6 +30,7 @@ public class PermissionRequest internal constructor(
     public class Builder {
         private val permissions = mutableListOf<String>()
         private var rationale: (suspend (List<String>) -> Boolean)? = null
+        private var strategy: RationaleStrategy = RationaleStrategy.OnShouldShow
 
         /** 添加单个权限。 */
         public fun permission(permission: String) {
@@ -58,9 +62,18 @@ public class PermissionRequest internal constructor(
             rationale = block
         }
 
+        /**
+         * 设置 rationale 触发策略，默认 [RationaleStrategy.OnShouldShow]。
+         *
+         * 仅在设置了 [rationale] 回调时生效。
+         */
+        public fun strategy(strategy: RationaleStrategy) {
+            this.strategy = strategy
+        }
+
         internal fun build(): PermissionRequest {
             require(permissions.isNotEmpty()) { "At least one permission is required" }
-            return PermissionRequest(permissions.toList(), rationale)
+            return PermissionRequest(permissions.toList(), rationale, strategy)
         }
     }
 }
@@ -72,6 +85,7 @@ public class PermissionRequest internal constructor(
  * val result = buildPermissionRequest {
  *     permission(Manifest.permission.CAMERA)
  *     permissionGroup(PermissionGroups.LOCATION)
+ *     strategy(RationaleStrategy.OnDenied)
  *     rationale { permissions -> showRationaleDialog(permissions) }
  * }
  * ```
@@ -85,7 +99,7 @@ public suspend fun FragmentActivity.buildPermissionRequest(
 ): PermissionResult? {
     val request = PermissionRequest.Builder().apply(block).build()
     return if (request.rationale != null) {
-        AwPermission.requestWithRationale(this, *request.permissions.toTypedArray(), rationale = request.rationale!!)
+        AwPermission.requestWithRationale(this, *request.permissions.toTypedArray(), strategy = request.strategy, rationale = request.rationale!!)
     } else {
         AwPermission.request(this, *request.permissions.toTypedArray())
     }
@@ -103,7 +117,7 @@ public suspend fun Fragment.buildPermissionRequest(
 ): PermissionResult? {
     val request = PermissionRequest.Builder().apply(block).build()
     return if (request.rationale != null) {
-        AwPermission.requestWithRationale(this, *request.permissions.toTypedArray(), rationale = request.rationale!!)
+        AwPermission.requestWithRationale(this, *request.permissions.toTypedArray(), strategy = request.strategy, rationale = request.rationale!!)
     } else {
         AwPermission.request(this, *request.permissions.toTypedArray())
     }

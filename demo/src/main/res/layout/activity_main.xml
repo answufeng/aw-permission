@@ -16,7 +16,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="?android:attr/colorPrimary"
-            app:title="🔒 aw-permission 权限库"
+            app:title="aw-permission 权限库"
             app:titleTextColor="@android:color/white"
             app:navigationIcon="@drawable/ic_security" />
 
@@ -33,7 +33,6 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- 基本权限卡片 -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -50,7 +49,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="📱 基本权限"
+                        android:text="基本权限"
                         android:textColor="?android:attr/colorPrimary"
                         android:textSize="18sp"
                         android:textStyle="bold"
@@ -61,8 +60,8 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="基础的权限请求功能，支持相机、定位、录音等常用权限的协程请求"
-                        android:textColor="#666666"
+                        android:text="基础的权限请求功能，支持相机、定位、录音、存储等常用权限的协程请求"
+                        android:textColor="?android:attr/textColorSecondary"
                         android:textSize="14sp"
                         android:layout_marginBottom="16dp"
                         android:lineSpacingExtra="4dp" />
@@ -91,18 +90,34 @@
 
                     </LinearLayout>
 
-                    <Button
-                        android:id="@+id/btnMultiple"
-                        style="@style/MaterialButton.Outlined"
+                    <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:text="多个权限请求"
-                        android:layout_marginTop="8dp" />
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="8dp">
+
+                        <Button
+                            android:id="@+id/btnStorage"
+                            style="@style/MaterialButton.Outlined"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="存储/媒体"
+                            android:layout_marginEnd="8dp" />
+
+                        <Button
+                            android:id="@+id/btnMultiple"
+                            style="@style/MaterialButton.Outlined"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="多个权限" />
+
+                    </LinearLayout>
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 高级功能卡片 -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -119,7 +134,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="⚡ 高级功能"
+                        android:text="高级功能"
                         android:textColor="?android:attr/colorPrimary"
                         android:textSize="18sp"
                         android:textStyle="bold"
@@ -131,7 +146,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="带说明的权限请求、DSL风格请求、权限状态检查、设置页面跳转等高级功能"
-                        android:textColor="#666666"
+                        android:textColor="?android:attr/textColorSecondary"
                         android:textSize="14sp"
                         android:layout_marginBottom="16dp"
                         android:lineSpacingExtra="4dp" />
@@ -188,7 +203,74 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 操作日志卡片 -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="特殊权限"
+                        android:textColor="?android:attr/colorPrimary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:drawablePadding="8dp"
+                        android:drawableStart="@drawable/ic_security"
+                        android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="国产ROM特殊权限引导，支持状态检查和设置页跳转"
+                        android:textColor="?android:attr/textColorSecondary"
+                        android:textSize="14sp"
+                        android:layout_marginBottom="16dp"
+                        android:lineSpacingExtra="4dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnSpecialFloat"
+                            style="@style/MaterialButton.Outlined"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="悬浮窗"
+                            android:layout_marginEnd="8dp" />
+
+                        <Button
+                            android:id="@+id/btnSpecialBattery"
+                            style="@style/MaterialButton.Outlined"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="电池优化" />
+
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/btnSpecialNotify"
+                        style="@style/MaterialButton.Outlined"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:text="通知栏监听"
+                        android:layout_marginTop="8dp" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -204,8 +286,8 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="📋 操作日志"
-                        android:textColor="#FF9800"
+                        android:text="操作日志"
+                        android:textColor="?android:attr/colorPrimary"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:drawablePadding="8dp"
@@ -214,8 +296,8 @@
 
                     <ScrollView
                         android:layout_width="match_parent"
-                        android:layout_height="200dp"
-                        android:background="#F8F9FA"
+                        android:layout_height="300dp"
+                        android:background="?android:attr/colorBackground"
                         android:padding="12dp">
 
                         <TextView
@@ -223,7 +305,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:text="操作日志将显示在这里...\n点击上方按钮开始测试权限功能"
-                            android:textColor="#333333"
+                            android:textColor="?android:attr/textColorPrimary"
                             android:textSize="13sp"
                             android:fontFamily="monospace"
                             android:lineSpacingExtra="4dp" />

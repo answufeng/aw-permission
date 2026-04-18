@@ -3,7 +3,10 @@ package com.answufeng.permission
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 
 /**
  * 国产 ROM 特殊权限引导工具。
@@ -46,7 +49,91 @@ public object SpecialPermission {
         /** 省电策略白名单（华为、小米等）。 */
         BATTERY_SAVING,
         /** 电池优化白名单（标准 Android）。 */
-        IGNORE_BATTERY_OPTIMIZATION
+        IGNORE_BATTERY_OPTIMIZATION,
+        /** 系统设置修改权限（标准 Android，API 23+）。 */
+        WRITE_SETTINGS,
+        /** 安装未知应用权限（标准 Android，API 26+）。 */
+        REQUEST_INSTALL_PACKAGES
+    }
+
+    /**
+     * 检查特殊权限是否已授权。
+     *
+     * 对于可以程序化检查的权限类型，返回当前授权状态。
+     * 对于无法程序化检查的权限类型（如 [PermissionType.AUTO_START]、
+     * [PermissionType.BACKGROUND_POPUP]、[PermissionType.BATTERY_SAVING]），
+     * 始终返回 `false`，需要用户手动确认。
+     *
+     * @param context 任意 [Context]
+     * @param permissionType 特殊权限类型
+     * @return 已授权返回 `true`，未授权或无法检查返回 `false`
+     */
+    public fun isGranted(context: Context, permissionType: PermissionType): Boolean {
+        return when (permissionType) {
+            PermissionType.FLOAT_WINDOW -> checkFloatWindowPermission(context)
+            PermissionType.NOTIFICATION_LISTENER -> checkNotificationListenerPermission(context)
+            PermissionType.IGNORE_BATTERY_OPTIMIZATION -> checkIgnoreBatteryOptimization(context)
+            PermissionType.WRITE_SETTINGS -> checkWriteSettingsPermission(context)
+            PermissionType.REQUEST_INSTALL_PACKAGES -> checkInstallPackagesPermission(context)
+            PermissionType.AUTO_START -> false
+            PermissionType.BACKGROUND_POPUP -> false
+            PermissionType.BATTERY_SAVING -> false
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun checkFloatWindowPermission(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Settings.canDrawOverlays(context)
+        } else {
+            try {
+                val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? android.app.AppOpsManager
+                    ?: return false
+                val method = android.app.AppOpsManager::class.java.getMethod(
+                    "checkOpNoThrow",
+                    Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType,
+                    String::class.java
+                )
+                val op = 24 // OP_SYSTEM_ALERT_WINDOW
+                val result = method.invoke(appOps, op, android.os.Process.myUid(), context.packageName) as? Int
+                    ?: android.app.AppOpsManager.MODE_IGNORED
+                result == android.app.AppOpsManager.MODE_ALLOWED
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
+    private fun checkNotificationListenerPermission(context: Context): Boolean {
+        val cn = android.content.ComponentName(context, android.service.notification.NotificationListenerService::class.java)
+        val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners") ?: return false
+        return flat.contains(cn.flattenToString()) || flat.contains(context.packageName)
+    }
+
+    private fun checkIgnoreBatteryOptimization(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            pm?.isIgnoringBatteryOptimizations(context.packageName) ?: false
+        } else {
+            false
+        }
+    }
+
+    private fun checkWriteSettingsPermission(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Settings.System.canWrite(context)
+        } else {
+            true
+        }
+    }
+
+    private fun checkInstallPackagesPermission(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.packageManager.canRequestPackageInstalls()
+        } else {
+            true
+        }
     }
 
     /**
@@ -82,6 +169,8 @@ public object SpecialPermission {
             PermissionType.BACKGROUND_POPUP -> addBackgroundPopupIntents(context)
             PermissionType.BATTERY_SAVING -> addBatterySavingIntents(context)
             PermissionType.IGNORE_BATTERY_OPTIMIZATION -> addIgnoreBatteryOptimizationIntent(context)
+            PermissionType.WRITE_SETTINGS -> addWriteSettingsIntents(context)
+            PermissionType.REQUEST_INSTALL_PACKAGES -> addInstallPackagesIntents(context)
         }
     }
 
@@ -128,6 +217,27 @@ public object SpecialPermission {
             )
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
+        add(Intent().apply {
+            component = ComponentName(
+                "com.samsung.android.lool",
+                "com.samsung.android.sm.ui.battery.BatteryActivity"
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+        add(Intent().apply {
+            component = ComponentName(
+                "com.lenovo.securitycenter",
+                "com.lenovo.securitycenter.bootpermission.BootPermissionActivity"
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+        add(Intent().apply {
+            component = ComponentName(
+                "com.asus.mobilemanager",
+                "com.asus.mobilemanager.MainActivity"
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
     }
 
     private fun MutableList<Intent>.addNotificationListenerIntents() {
@@ -167,8 +277,8 @@ public object SpecialPermission {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            add(Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
-                data = android.net.Uri.fromParts("package", context.packageName, null)
+            add(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                data = Uri.fromParts("package", context.packageName, null)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
         }
@@ -216,18 +326,50 @@ public object SpecialPermission {
             putExtra("package_label", getAppName(context))
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
+        add(Intent().apply {
+            component = ComponentName(
+                "com.samsung.android.lool",
+                "com.samsung.android.sm.ui.battery.BatteryActivity"
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+        add(Intent().apply {
+            component = ComponentName(
+                "com.asus.mobilemanager",
+                "com.asus.mobilemanager.powersaver.PowerSaverActivity"
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
     }
 
     private fun MutableList<Intent>.addIgnoreBatteryOptimizationIntent(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            add(Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                data = android.net.Uri.fromParts("package", context.packageName, null)
+            add(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
         }
-        add(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+        add(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
+    }
+
+    private fun MutableList<Intent>.addWriteSettingsIntents(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            add(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+        }
+    }
+
+    private fun MutableList<Intent>.addInstallPackagesIntents(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            add(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+        }
     }
 
     private fun getAppName(context: Context): String {

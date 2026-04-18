@@ -77,6 +77,9 @@ internal object PermissionDetector {
         if (wasRationaleBefore && !isRationaleAfter) return true
         if (isRationaleAfter) return false
         if (!wasRationaleBefore && !isRationaleAfter) {
+            if (!PermissionHistory.hasRequested(activity, permission)) {
+                return false
+            }
             return checkPermanentlyDeniedViaAppOps(activity, permission)
         }
         return false
@@ -87,6 +90,7 @@ internal object PermissionDetector {
         context: Context,
         permission: String
     ): Boolean {
+        if (!isProblematicRom()) return false
         return try {
             val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
                 ?: return false
@@ -105,6 +109,19 @@ internal object PermissionDetector {
         }
     }
 
+    private val noteOpMethod: java.lang.reflect.Method? by lazy {
+        try {
+            AppOpsManager::class.java.getMethod(
+                "noteOpNoThrow",
+                String::class.java,
+                Int::class.javaPrimitiveType,
+                String::class.java
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     @Suppress("TooGenericExceptionCaught")
     private fun checkViaNoteOp(
         appOps: AppOpsManager,
@@ -113,14 +130,13 @@ internal object PermissionDetector {
         packageName: String
     ): Int {
         return try {
-            val method = AppOpsManager::class.java.getMethod(
-                "noteOpNoThrow",
-                String::class.java,
-                Int::class.javaPrimitiveType,
-                String::class.java
-            )
-            method.invoke(appOps, op, uid, packageName) as? Int
-                ?: AppOpsManager.MODE_ALLOWED
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                appOps.noteOpNoThrow(op, uid, packageName)
+            } else {
+                val method = noteOpMethod ?: return AppOpsManager.MODE_ALLOWED
+                method.invoke(appOps, op, uid, packageName) as? Int
+                    ?: AppOpsManager.MODE_ALLOWED
+            }
         } catch (_: Exception) {
             AppOpsManager.MODE_ALLOWED
         }

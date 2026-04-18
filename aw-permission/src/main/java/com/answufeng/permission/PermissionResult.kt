@@ -31,9 +31,9 @@ public data class PermissionResult(
     public val permanentlyDenied: List<String>
 ) {
 
-    private val grantedSet: Set<String> = granted.toSet()
-    private val deniedSet: Set<String> = denied.toSet()
-    private val permanentlyDeniedSet: Set<String> = permanentlyDenied.toSet()
+    private val grantedSet: Set<String> by lazy { granted.toSet() }
+    private val deniedSet: Set<String> by lazy { denied.toSet() }
+    private val permanentlyDeniedSet: Set<String> by lazy { permanentlyDenied.toSet() }
 
     /** 结果是否为空（三个列表全为空）。通常不应出现此情况。 */
     public val isEmpty: Boolean get() = granted.isEmpty() && denied.isEmpty() && permanentlyDenied.isEmpty()

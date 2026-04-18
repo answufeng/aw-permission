@@ -91,7 +91,44 @@ object AwPermission {
 
     internal val tagCounter: AtomicLong = AtomicLong(0)
 
+    private const val SETTINGS_WAIT_TIMEOUT_MS = 120_000L
+    private const val LOG_TAG = "AwPermission"
+
     private val mutex = Mutex()
+
+    /**
+     * 日志级别。
+     */
+    public enum class LogLevel {
+        DEBUG, INFO, WARN, ERROR
+    }
+
+    private var logger: ((level: LogLevel, tag: String, msg: String) -> Unit)? = null
+
+    /**
+     * 设置自定义日志输出。
+     *
+     * 传入 `null` 禁用日志输出（默认行为）。
+     *
+     * ```kotlin
+     * AwPermission.setLogger { level, tag, msg ->
+     *     when (level) {
+     *         AwPermission.LogLevel.WARN -> Log.w(tag, msg)
+     *         AwPermission.LogLevel.ERROR -> Log.e(tag, msg)
+     *         else -> Log.d(tag, msg)
+     *     }
+     * }
+     * ```
+     *
+     * @param logger 日志回调，接收级别、标签和消息
+     */
+    public fun setLogger(logger: ((level: LogLevel, tag: String, msg: String) -> Unit)?) {
+        this.logger = logger
+    }
+
+    internal fun log(level: LogLevel, msg: String) {
+        logger?.invoke(level, LOG_TAG, msg)
+    }
 
     /**
      * 检查单个权限是否已授权。
@@ -159,7 +196,8 @@ object AwPermission {
             require(permissions.isNotEmpty()) { "permissions must not be empty" }
             require(permissions.all { it.isNotBlank() }) { "permission names must not be blank" }
             checkActivityState(activity)
-            requestInternal(activity, permissions)
+            val deduplicated = permissions.distinct().toTypedArray()
+            requestInternal(activity, deduplicated)
         }
 
     /**
@@ -256,11 +294,13 @@ object AwPermission {
         require(permissions.all { it.isNotBlank() }) { "permission names must not be blank" }
         checkActivityState(activity)
 
+        val deduplicated = permissions.distinct().toTypedArray()
+
         val needRationale = when (strategy) {
-            RationaleStrategy.OnShouldShow -> permissions.filter {
+            RationaleStrategy.OnShouldShow -> deduplicated.filter {
                 !isGranted(activity, it) && activity.shouldShowRequestPermissionRationale(it)
             }
-            RationaleStrategy.OnDenied -> permissions.filter { !isGranted(activity, it) }
+            RationaleStrategy.OnDenied -> deduplicated.filter { !isGranted(activity, it) }
         }
 
         if (needRationale.isNotEmpty()) {
@@ -268,7 +308,7 @@ object AwPermission {
             if (!shouldProceed) return@withLock null
         }
 
-        requestInternal(activity, permissions)
+        requestInternal(activity, deduplicated)
     }
 
     /**
@@ -386,37 +426,51 @@ object AwPermission {
         activity: FragmentActivity,
         permissions: Array<out String>
     ): PermissionResult {
-        return kotlinx.coroutines.suspendCancellableCoroutine { cont ->
-            val observer = object : androidx.lifecycle.DefaultLifecycleObserver {
-                override fun onResume(owner: androidx.lifecycle.LifecycleOwner) {
-                    activity.lifecycle.removeObserver(this)
-                    if (cont.isActive) {
-                        val granted = mutableListOf<String>()
-                        val denied = mutableListOf<String>()
-                        val permanentlyDenied = mutableListOf<String>()
-                        for (permission in permissions) {
-                            if (isGranted(activity, permission)) {
-                                granted.add(permission)
-                            } else {
-                                val rationale = activity.shouldShowRequestPermissionRationale(permission)
-                                if (rationale) {
-                                    denied.add(permission)
+        return kotlinx.coroutines.withTimeoutOrNull(SETTINGS_WAIT_TIMEOUT_MS) {
+            kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+                val observer = object : androidx.lifecycle.DefaultLifecycleObserver {
+                    override fun onResume(owner: androidx.lifecycle.LifecycleOwner) {
+                        activity.lifecycle.removeObserver(this)
+                        if (cont.isActive) {
+                            val granted = mutableListOf<String>()
+                            val denied = mutableListOf<String>()
+                            val permanentlyDenied = mutableListOf<String>()
+                            for (permission in permissions) {
+                                if (isGranted(activity, permission)) {
+                                    granted.add(permission)
                                 } else {
-                                    val isPermDenied = PermissionDetector.isPermanentlyDenied(
-                                        activity, permission,
-                                        wasRationaleBefore = false,
-                                        isRationaleAfter = false
-                                    )
-                                    if (isPermDenied) permanentlyDenied.add(permission) else denied.add(permission)
+                                    val rationale = activity.shouldShowRequestPermissionRationale(permission)
+                                    if (rationale) {
+                                        denied.add(permission)
+                                    } else {
+                                        val isPermDenied = PermissionDetector.isPermanentlyDenied(
+                                            activity, permission,
+                                            wasRationaleBefore = false,
+                                            isRationaleAfter = false
+                                        )
+                                        if (isPermDenied) permanentlyDenied.add(permission) else denied.add(permission)
+                                    }
                                 }
                             }
+                            cont.resume(PermissionResult(granted = granted, denied = denied, permanentlyDenied = permanentlyDenied)) {}
                         }
-                        cont.resume(PermissionResult(granted = granted, denied = denied, permanentlyDenied = permanentlyDenied)) {}
                     }
                 }
+                activity.lifecycle.addObserver(observer)
+                cont.invokeOnCancellation { activity.lifecycle.removeObserver(observer) }
             }
-            activity.lifecycle.addObserver(observer)
-            cont.invokeOnCancellation { activity.lifecycle.removeObserver(observer) }
+        } ?: run {
+            val granted = mutableListOf<String>()
+            val denied = mutableListOf<String>()
+            val permanentlyDenied = mutableListOf<String>()
+            for (permission in permissions) {
+                if (isGranted(activity, permission)) {
+                    granted.add(permission)
+                } else {
+                    denied.add(permission)
+                }
+            }
+            PermissionResult(granted = granted, denied = denied, permanentlyDenied = permanentlyDenied)
         }
     }
 
@@ -425,49 +479,61 @@ object AwPermission {
             data = Uri.fromParts("package", context.packageName, null)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
-        add(Intent().apply {
-            component = ComponentName(
-                "com.huawei.systemmanager",
-                "com.huawei.systemmanager.permissionmanager.ui.MainActivity"
-            )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
-        add(Intent().apply {
-            component = ComponentName(
-                "com.miui.securitycenter",
-                "com.miui.permcenter.permissions.PermissionsEditorActivity"
-            )
-            putExtra("extra_pkgname", context.packageName)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
-        add(Intent().apply {
-            component = ComponentName(
-                "com.coloros.safecenter",
-                "com.coloros.safecenter.permission.PermissionTopActivity"
-            )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
-        add(Intent().apply {
-            component = ComponentName(
-                "com.oppo.safe",
-                "com.oppo.safe.permission.PermissionTopActivity"
-            )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
-        add(Intent().apply {
-            component = ComponentName(
-                "com.vivo.abe.uniui",
-                "com.vivo.abe.uniui.UriPermissionActivity"
-            )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
-        add(Intent().apply {
-            component = ComponentName(
-                "com.meizu.safe",
-                "com.meizu.safe.security.PermissionActivity"
-            )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
+        for (template in appSettingsIntentTemplates) {
+            add(Intent(template).apply {
+                if (template.hasExtra("extra_pkgname")) {
+                    putExtra("extra_pkgname", context.packageName)
+                }
+            })
+        }
+    }
+
+    private val appSettingsIntentTemplates: List<Intent> by lazy {
+        buildList {
+            add(Intent().apply {
+                component = ComponentName(
+                    "com.huawei.systemmanager",
+                    "com.huawei.systemmanager.permissionmanager.ui.MainActivity"
+                )
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+            add(Intent().apply {
+                component = ComponentName(
+                    "com.miui.securitycenter",
+                    "com.miui.permcenter.permissions.PermissionsEditorActivity"
+                )
+                putExtra("extra_pkgname", "")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+            add(Intent().apply {
+                component = ComponentName(
+                    "com.coloros.safecenter",
+                    "com.coloros.safecenter.permission.PermissionTopActivity"
+                )
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+            add(Intent().apply {
+                component = ComponentName(
+                    "com.oppo.safe",
+                    "com.oppo.safe.permission.PermissionTopActivity"
+                )
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+            add(Intent().apply {
+                component = ComponentName(
+                    "com.vivo.abe.uniui",
+                    "com.vivo.abe.uniui.UriPermissionActivity"
+                )
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+            add(Intent().apply {
+                component = ComponentName(
+                    "com.meizu.safe",
+                    "com.meizu.safe.security.PermissionActivity"
+                )
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+        }
     }
 
     private suspend fun requestInternal(
@@ -486,8 +552,12 @@ object AwPermission {
         }
 
         if (needRequest.isEmpty()) {
+            log(LogLevel.DEBUG, "All permissions already granted: $alreadyGranted")
             return PermissionResult(granted = alreadyGranted, denied = emptyList(), permanentlyDenied = emptyList())
         }
+
+        log(LogLevel.DEBUG, "Requesting permissions: needRequest=$needRequest, alreadyGranted=$alreadyGranted")
+        PermissionHistory.recordRequested(activity, needRequest.toList())
 
         val rationaleStateBefore = needRequest.associateWith {
             activity.shouldShowRequestPermissionRationale(it)

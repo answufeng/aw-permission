@@ -46,7 +46,7 @@ public fun Context.hasPermissions(vararg permissions: String): Boolean {
  * @param permissions 要请求的权限
  * @return [PermissionResult]
  */
-public suspend fun FragmentActivity.requestPermissions(vararg permissions: String): PermissionResult {
+public suspend fun FragmentActivity.requestRuntimePermissions(vararg permissions: String): PermissionResult {
     return AwPermission.request(this, *permissions)
 }
 
@@ -59,7 +59,7 @@ public suspend fun FragmentActivity.requestPermissions(vararg permissions: Strin
  * @param permissions 要请求的权限
  * @return [PermissionResult]
  */
-public suspend fun Fragment.requestPermissions(vararg permissions: String): PermissionResult {
+public suspend fun Fragment.requestRuntimePermissions(vararg permissions: String): PermissionResult {
     return AwPermission.request(this, *permissions)
 }
 
@@ -73,7 +73,7 @@ public suspend fun Fragment.requestPermissions(vararg permissions: String): Perm
  * @param rationale 接收需要理由说明的权限列表的挂起 Lambda
  * @return [PermissionResult] 或 `null`（用户取消 rationale 时）
  */
-public suspend fun FragmentActivity.requestPermissionsWithRationale(
+public suspend fun FragmentActivity.requestRuntimePermissionsWithRationale(
     vararg permissions: String,
     strategy: RationaleStrategy = RationaleStrategy.OnShouldShow,
     rationale: suspend (permissions: List<String>) -> Boolean
@@ -91,7 +91,7 @@ public suspend fun FragmentActivity.requestPermissionsWithRationale(
  * @param rationale 接收需要理由说明的权限列表的挂起 Lambda
  * @return [PermissionResult] 或 `null`（用户取消 rationale 时）
  */
-public suspend fun Fragment.requestPermissionsWithRationale(
+public suspend fun Fragment.requestRuntimePermissionsWithRationale(
     vararg permissions: String,
     strategy: RationaleStrategy = RationaleStrategy.OnShouldShow,
     rationale: suspend (permissions: List<String>) -> Boolean
@@ -114,7 +114,7 @@ public fun FragmentActivity.runWithPermissions(
     vararg permissions: String,
     onGranted: () -> Unit,
     onDenied: (PermissionResult) -> Unit = {
-        android.util.Log.w("AwPermission", "权限被拒绝但未处理: ${it.allDenied}")
+        AwPermission.log(AwPermission.LogLevel.WARN, "权限被拒绝但未处理: ${it.allDenied}")
     }
 ) {
     lifecycleScope.launch {
@@ -144,7 +144,7 @@ public fun Fragment.runWithPermissions(
     vararg permissions: String,
     onGranted: () -> Unit,
     onDenied: (PermissionResult) -> Unit = {
-        android.util.Log.w("AwPermission", "权限被拒绝但未处理: ${it.allDenied}")
+        AwPermission.log(AwPermission.LogLevel.WARN, "权限被拒绝但未处理: ${it.allDenied}")
     }
 ) {
     lifecycleScope.launch {
