@@ -3,6 +3,9 @@ package com.answufeng.permission
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 
+@DslMarker
+annotation class AwPermissionDsl
+
 /**
  * DSL 风格权限请求配置。
  *
@@ -27,6 +30,7 @@ public class PermissionRequest internal constructor(
     /**
      * DSL 风格的 [PermissionRequest] 构建器。
      */
+    @AwPermissionDsl
     public class Builder {
         private val permissions = mutableListOf<String>()
         private var rationale: (suspend (List<String>) -> Boolean)? = null
