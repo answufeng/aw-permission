@@ -103,6 +103,7 @@ object AwPermission {
         DEBUG, INFO, WARN, ERROR
     }
 
+    @Volatile
     private var logger: ((level: LogLevel, tag: String, msg: String) -> Unit)? = null
 
     /**

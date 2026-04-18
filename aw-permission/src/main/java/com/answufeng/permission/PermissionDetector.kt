@@ -145,7 +145,7 @@ internal object PermissionDetector {
     private val knownProblematicRoms = setOf(
         "miui", "emui", "harmony", "coloros", "funtouch",
         "flyme", "oneui", "smartisan", "nubia", "rog",
-        "vivo", "oppo", "huawei", "xiaomi", "samsung",
+        "vivo", "oppo", "huawei", "xiaomi",
         "meizu", "lenovo", "zte", "asus"
     )
 }

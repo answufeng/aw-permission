@@ -106,9 +106,8 @@ public object SpecialPermission {
     }
 
     private fun checkNotificationListenerPermission(context: Context): Boolean {
-        val cn = android.content.ComponentName(context, android.service.notification.NotificationListenerService::class.java)
         val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners") ?: return false
-        return flat.contains(cn.flattenToString()) || flat.contains(context.packageName)
+        return flat.contains(context.packageName)
     }
 
     private fun checkIgnoreBatteryOptimization(context: Context): Boolean {
