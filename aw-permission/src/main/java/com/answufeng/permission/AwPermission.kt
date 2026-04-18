@@ -163,6 +163,23 @@ object AwPermission {
         }
 
     /**
+     * 请求运行时权限（接受 [List] 参数，方便传入权限组）。
+     *
+     * ```kotlin
+     * val result = AwPermission.request(activity, PermissionGroups.LOCATION.toList())
+     * ```
+     *
+     * @param activity 用于发起请求的 [FragmentActivity]
+     * @param permissions 要请求的权限列表
+     * @return [PermissionResult]
+     * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
+     * @throws IllegalStateException 若 Activity 正在结束或已销毁
+     */
+    @CheckResult
+    suspend fun request(activity: FragmentActivity, permissions: List<String>): PermissionResult =
+        request(activity, *permissions.toTypedArray())
+
+    /**
      * 从 Fragment 请求运行时权限。
      *
      * 委托给 [request]，使用 Fragment 的宿主 Activity。
@@ -180,10 +197,26 @@ object AwPermission {
     }
 
     /**
+     * 从 Fragment 请求运行时权限（接受 [List] 参数）。
+     *
+     * @param fragment 用于发起请求的 [Fragment]
+     * @param permissions 要请求的权限列表
+     * @return [PermissionResult]
+     */
+    @CheckResult
+    suspend fun request(fragment: Fragment, permissions: List<String>): PermissionResult {
+        return request(fragment, *permissions.toTypedArray())
+    }
+
+    /**
      * 带理由说明的权限请求。
      *
      * 整个流程（包括 rationale 展示和权限请求）在 [Mutex] 保护下执行，
      * 保证同一时刻不会有其他请求流程并发执行。
+     *
+     * 默认使用 [RationaleStrategy.OnShouldShow]：仅当系统建议展示理由时触发。
+     * 如果希望在权限被拒绝时也触发（包括首次拒绝），使用
+     * [requestWithRationale] 的 [RationaleStrategy.OnDenied] 重载版本。
      *
      * @param activity 用于发起请求的 [FragmentActivity]
      * @param permissions 要请求的权限
@@ -198,13 +231,36 @@ object AwPermission {
         activity: FragmentActivity,
         vararg permissions: String,
         rationale: suspend (permissions: List<String>) -> Boolean
+    ): PermissionResult? = requestWithRationale(activity, *permissions, strategy = RationaleStrategy.OnShouldShow, rationale = rationale)
+
+    /**
+     * 带理由说明的权限请求（可指定触发策略）。
+     *
+     * @param activity 用于发起请求的 [FragmentActivity]
+     * @param permissions 要请求的权限
+     * @param strategy rationale 触发策略，参见 [RationaleStrategy]
+     * @param rationale 接收需要理由说明的权限列表的挂起 Lambda。
+     *                  返回 `true` 继续请求，返回 `false` 取消。
+     * @return 若请求继续则返回 [PermissionResult]，若用户取消理由对话框则返回 `null`
+     * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
+     * @throws IllegalStateException 若 Activity 正在结束或已销毁
+     */
+    @CheckResult
+    suspend fun requestWithRationale(
+        activity: FragmentActivity,
+        vararg permissions: String,
+        strategy: RationaleStrategy = RationaleStrategy.OnShouldShow,
+        rationale: suspend (permissions: List<String>) -> Boolean
     ): PermissionResult? = mutex.withLock {
         require(permissions.isNotEmpty()) { "permissions must not be empty" }
         require(permissions.all { it.isNotBlank() }) { "permission names must not be blank" }
         checkActivityState(activity)
 
-        val needRationale = permissions.filter {
-            !isGranted(activity, it) && activity.shouldShowRequestPermissionRationale(it)
+        val needRationale = when (strategy) {
+            RationaleStrategy.OnShouldShow -> permissions.filter {
+                !isGranted(activity, it) && activity.shouldShowRequestPermissionRationale(it)
+            }
+            RationaleStrategy.OnDenied -> permissions.filter { !isGranted(activity, it) }
         }
 
         if (needRationale.isNotEmpty()) {
@@ -230,9 +286,28 @@ object AwPermission {
         fragment: Fragment,
         vararg permissions: String,
         rationale: suspend (permissions: List<String>) -> Boolean
+    ): PermissionResult? = requestWithRationale(fragment, *permissions, strategy = RationaleStrategy.OnShouldShow, rationale = rationale)
+
+    /**
+     * 从 Fragment 带理由说明的权限请求（可指定触发策略）。
+     *
+     * 委托给 Activity 版本的 [requestWithRationale]。
+     *
+     * @param fragment 用于发起请求的 [Fragment]
+     * @param permissions 要请求的权限
+     * @param strategy rationale 触发策略
+     * @param rationale 接收需要理由说明的权限列表的挂起 Lambda
+     * @return 若请求继续则返回 [PermissionResult]，若用户取消则返回 `null`
+     */
+    @CheckResult
+    suspend fun requestWithRationale(
+        fragment: Fragment,
+        vararg permissions: String,
+        strategy: RationaleStrategy = RationaleStrategy.OnShouldShow,
+        rationale: suspend (permissions: List<String>) -> Boolean
     ): PermissionResult? {
         val activity = fragment.requireActivity()
-        return requestWithRationale(activity, *permissions, rationale = rationale)
+        return requestWithRationale(activity, *permissions, strategy = strategy, rationale = rationale)
     }
 
     /**
@@ -244,27 +319,7 @@ object AwPermission {
      * @return 设置页成功打开返回 `true`，无法打开返回 `false`
      */
     fun openAppSettings(context: Context): Boolean {
-        val intents = buildList {
-            add(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", context.packageName, null)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            })
-            add(Intent().apply {
-                component = ComponentName(
-                    "com.huawei.systemmanager",
-                    "com.huawei.systemmanager.addviewmonitor.AddViewMonitorActivity"
-                )
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            })
-            add(Intent().apply {
-                component = ComponentName(
-                    "com.miui.securitycenter",
-                    "com.miui.permcenter.permissions.PermissionsEditorActivity"
-                )
-                putExtra("extra_pkgname", context.packageName)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            })
-        }
+        val intents = buildAppSettingsIntents(context)
 
         for (intent in intents) {
             try {
@@ -287,6 +342,132 @@ object AwPermission {
         } catch (_: Exception) {
             false
         }
+    }
+
+    /**
+     * 打开当前应用的系统设置页，等待用户返回后检查权限状态。
+     *
+     * 打开设置页后，协程会挂起直到 Activity 恢复到 RESUMED 状态，
+     * 然后自动重新检查指定权限的授权状态。
+     *
+     * 适用于权限被永久拒绝后引导用户去设置页开启权限的场景。
+     *
+     * @param activity [FragmentActivity]
+     * @param permissions 要在返回后检查的权限
+     * @return 用户从设置页返回后的 [PermissionResult]
+     * @throws IllegalStateException 若 Activity 正在结束或已销毁
+     */
+    suspend fun openAppSettingsAndWait(
+        activity: FragmentActivity,
+        vararg permissions: String
+    ): PermissionResult {
+        checkActivityState(activity)
+        openAppSettings(activity)
+        return waitForActivityResumedAndCheck(activity, permissions)
+    }
+
+    /**
+     * 从 Fragment 打开应用设置页并等待返回后检查权限状态。
+     *
+     * 委托给 Activity 版本的 [openAppSettingsAndWait]。
+     *
+     * @param fragment [Fragment]
+     * @param permissions 要在返回后检查的权限
+     * @return 用户从设置页返回后的 [PermissionResult]
+     */
+    suspend fun openAppSettingsAndWait(
+        fragment: Fragment,
+        vararg permissions: String
+    ): PermissionResult {
+        return openAppSettingsAndWait(fragment.requireActivity(), *permissions)
+    }
+
+    private suspend fun waitForActivityResumedAndCheck(
+        activity: FragmentActivity,
+        permissions: Array<out String>
+    ): PermissionResult {
+        return kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+            val observer = object : androidx.lifecycle.DefaultLifecycleObserver {
+                override fun onResume(owner: androidx.lifecycle.LifecycleOwner) {
+                    activity.lifecycle.removeObserver(this)
+                    if (cont.isActive) {
+                        val granted = mutableListOf<String>()
+                        val denied = mutableListOf<String>()
+                        val permanentlyDenied = mutableListOf<String>()
+                        for (permission in permissions) {
+                            if (isGranted(activity, permission)) {
+                                granted.add(permission)
+                            } else {
+                                val rationale = activity.shouldShowRequestPermissionRationale(permission)
+                                if (rationale) {
+                                    denied.add(permission)
+                                } else {
+                                    val isPermDenied = PermissionDetector.isPermanentlyDenied(
+                                        activity, permission,
+                                        wasRationaleBefore = false,
+                                        isRationaleAfter = false
+                                    )
+                                    if (isPermDenied) permanentlyDenied.add(permission) else denied.add(permission)
+                                }
+                            }
+                        }
+                        cont.resume(PermissionResult(granted = granted, denied = denied, permanentlyDenied = permanentlyDenied)) {}
+                    }
+                }
+            }
+            activity.lifecycle.addObserver(observer)
+            cont.invokeOnCancellation { activity.lifecycle.removeObserver(observer) }
+        }
+    }
+
+    private fun buildAppSettingsIntents(context: Context): List<Intent> = buildList {
+        add(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", context.packageName, null)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+        add(Intent().apply {
+            component = ComponentName(
+                "com.huawei.systemmanager",
+                "com.huawei.systemmanager.permissionmanager.ui.MainActivity"
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+        add(Intent().apply {
+            component = ComponentName(
+                "com.miui.securitycenter",
+                "com.miui.permcenter.permissions.PermissionsEditorActivity"
+            )
+            putExtra("extra_pkgname", context.packageName)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+        add(Intent().apply {
+            component = ComponentName(
+                "com.coloros.safecenter",
+                "com.coloros.safecenter.permission.PermissionTopActivity"
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+        add(Intent().apply {
+            component = ComponentName(
+                "com.oppo.safe",
+                "com.oppo.safe.permission.PermissionTopActivity"
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+        add(Intent().apply {
+            component = ComponentName(
+                "com.vivo.abe.uniui",
+                "com.vivo.abe.uniui.UriPermissionActivity"
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+        add(Intent().apply {
+            component = ComponentName(
+                "com.meizu.safe",
+                "com.meizu.safe.security.PermissionActivity"
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
     }
 
     private suspend fun requestInternal(

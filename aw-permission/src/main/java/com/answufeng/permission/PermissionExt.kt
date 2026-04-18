@@ -46,7 +46,7 @@ public fun Context.hasPermissions(vararg permissions: String): Boolean {
  * @param permissions 要请求的权限
  * @return [PermissionResult]
  */
-public suspend fun FragmentActivity.requestPermissionsResult(vararg permissions: String): PermissionResult {
+public suspend fun FragmentActivity.requestPermissions(vararg permissions: String): PermissionResult {
     return AwPermission.request(this, *permissions)
 }
 
@@ -59,7 +59,7 @@ public suspend fun FragmentActivity.requestPermissionsResult(vararg permissions:
  * @param permissions 要请求的权限
  * @return [PermissionResult]
  */
-public suspend fun Fragment.requestPermissionsResult(vararg permissions: String): PermissionResult {
+public suspend fun Fragment.requestPermissions(vararg permissions: String): PermissionResult {
     return AwPermission.request(this, *permissions)
 }
 
@@ -73,11 +73,12 @@ public suspend fun Fragment.requestPermissionsResult(vararg permissions: String)
  * @param rationale 接收需要理由说明的权限列表的挂起 Lambda
  * @return [PermissionResult] 或 `null`（用户取消 rationale 时）
  */
-public suspend fun FragmentActivity.requestPermissionsResultWithRationale(
+public suspend fun FragmentActivity.requestPermissionsWithRationale(
     vararg permissions: String,
+    strategy: RationaleStrategy = RationaleStrategy.OnShouldShow,
     rationale: suspend (permissions: List<String>) -> Boolean
 ): PermissionResult? {
-    return AwPermission.requestWithRationale(this, *permissions, rationale = rationale)
+    return AwPermission.requestWithRationale(this, *permissions, strategy = strategy, rationale = rationale)
 }
 
 /**
@@ -90,30 +91,34 @@ public suspend fun FragmentActivity.requestPermissionsResultWithRationale(
  * @param rationale 接收需要理由说明的权限列表的挂起 Lambda
  * @return [PermissionResult] 或 `null`（用户取消 rationale 时）
  */
-public suspend fun Fragment.requestPermissionsResultWithRationale(
+public suspend fun Fragment.requestPermissionsWithRationale(
     vararg permissions: String,
+    strategy: RationaleStrategy = RationaleStrategy.OnShouldShow,
     rationale: suspend (permissions: List<String>) -> Boolean
 ): PermissionResult? {
-    return AwPermission.requestWithRationale(this, *permissions, rationale = rationale)
+    return AwPermission.requestWithRationale(this, *permissions, strategy = strategy, rationale = rationale)
 }
 
 /**
  * 请求权限并自动调用授权/拒绝回调。
  *
  * 回调执行前会检查 Activity 是否已销毁或正在结束，确保生命周期安全。
+ * 拒绝时默认打印警告日志，建议显式处理拒绝情况。
  *
  * @receiver [FragmentActivity]
  * @param permissions 要请求的权限
  * @param onGranted 全部授权时调用
- * @param onDenied 有权限被拒绝时调用，默认空实现
+ * @param onDenied 有权限被拒绝时调用
  */
-public fun FragmentActivity.requirePermissions(
+public fun FragmentActivity.runWithPermissions(
     vararg permissions: String,
     onGranted: () -> Unit,
-    onDenied: (PermissionResult) -> Unit = {}
+    onDenied: (PermissionResult) -> Unit = {
+        android.util.Log.w("AwPermission", "权限被拒绝但未处理: ${it.allDenied}")
+    }
 ) {
     lifecycleScope.launch {
-        val result = AwPermission.request(this@requirePermissions, *permissions)
+        val result = AwPermission.request(this@runWithPermissions, *permissions)
         if (!isDestroyed && !isFinishing) {
             if (result.isAllGranted) {
                 onGranted()
@@ -128,20 +133,23 @@ public fun FragmentActivity.requirePermissions(
  * 从 Fragment 请求权限并自动调用授权/拒绝回调。
  *
  * 回调执行前会检查宿主 Activity 是否已销毁或正在结束，确保生命周期安全。
+ * 拒绝时默认打印警告日志，建议显式处理拒绝情况。
  *
  * @receiver [Fragment]
  * @param permissions 要请求的权限
  * @param onGranted 全部授权时调用
- * @param onDenied 有权限被拒绝时调用，默认空实现
+ * @param onDenied 有权限被拒绝时调用
  */
-public fun Fragment.requirePermissions(
+public fun Fragment.runWithPermissions(
     vararg permissions: String,
     onGranted: () -> Unit,
-    onDenied: (PermissionResult) -> Unit = {}
+    onDenied: (PermissionResult) -> Unit = {
+        android.util.Log.w("AwPermission", "权限被拒绝但未处理: ${it.allDenied}")
+    }
 ) {
     lifecycleScope.launch {
-        val result = AwPermission.request(this@requirePermissions, *permissions)
-        val activity = this@requirePermissions.activity
+        val result = AwPermission.request(this@runWithPermissions, *permissions)
+        val activity = this@runWithPermissions.activity
         if (activity != null && !activity.isDestroyed && !activity.isFinishing) {
             if (result.isAllGranted) {
                 onGranted()
@@ -160,10 +168,10 @@ public fun Fragment.requirePermissions(
  *
  * Flow 发射的 [PermissionResult] 会区分 `denied` 和 `permanentlyDenied`：
  * - 未授权且 `shouldShowRequestPermissionRationale` 返回 `true` → `denied`
- * - 未授权且 `shouldShowRequestPermissionRationale` 返回 `false` → `permanentlyDenied`
+ * - 未授权且 `shouldShowRequestPermissionRationale` 返回 `false` 且 AppOps 检测为 `MODE_IGNORED` → `permanentlyDenied`
+ * - 未授权且 `shouldShowRequestPermissionRationale` 返回 `false` 且 AppOps 未检测到拒绝 → `denied`（可能是首次未请求）
  *
- * **注意**：首次请求前 `shouldShowRequestPermissionRationale` 也返回 `false`，
- * 因此在用户从未交互过的场景中，`permanentlyDenied` 可能包含首次未请求的权限。
+ * 通过 [PermissionDetector] 的 AppOps 增强检测，可以更准确地区分"从未请求"和"永久拒绝"。
  * 此 Flow 最适合用于「从设置页返回」的场景。
  *
  * @receiver [FragmentActivity]
@@ -184,10 +192,19 @@ public fun FragmentActivity.observePermissions(vararg permissions: String): Flow
                         granted.add(permission)
                     } else {
                         val rationale = activity.shouldShowRequestPermissionRationale(permission)
-                        if (!rationale) {
-                            permanentlyDenied.add(permission)
-                        } else {
+                        if (rationale) {
                             denied.add(permission)
+                        } else {
+                            val isPermDenied = PermissionDetector.isPermanentlyDenied(
+                                activity, permission,
+                                wasRationaleBefore = false,
+                                isRationaleAfter = false
+                            )
+                            if (isPermDenied) {
+                                permanentlyDenied.add(permission)
+                            } else {
+                                denied.add(permission)
+                            }
                         }
                     }
                 }
@@ -203,3 +220,42 @@ public fun FragmentActivity.observePermissions(vararg permissions: String): Flow
         }
         awaitClose { job.cancel() }
     }
+
+/**
+ * 打开应用设置页并等待用户返回后检查权限状态（suspend 扩展函数）。
+ *
+ * 委托给 [AwPermission.openAppSettingsAndWait]。
+ *
+ * @receiver [FragmentActivity]
+ * @param permissions 要在返回后检查的权限
+ * @return 用户从设置页返回后的 [PermissionResult]
+ */
+public suspend fun FragmentActivity.openAppSettingsAndWait(vararg permissions: String): PermissionResult {
+    return AwPermission.openAppSettingsAndWait(this, *permissions)
+}
+
+/**
+ * 从 Fragment 打开应用设置页并等待返回后检查权限状态（suspend 扩展函数）。
+ *
+ * 委托给 [AwPermission.openAppSettingsAndWait]。
+ *
+ * @receiver [Fragment]
+ * @param permissions 要在返回后检查的权限
+ * @return 用户从设置页返回后的 [PermissionResult]
+ */
+public suspend fun Fragment.openAppSettingsAndWait(vararg permissions: String): PermissionResult {
+    return AwPermission.openAppSettingsAndWait(this, *permissions)
+}
+
+/**
+ * 批量查询权限授权状态。
+ *
+ * 一次调用获取所有权限的授权状态，返回权限名称到授权状态的映射。
+ *
+ * @receiver 任意 [Context]
+ * @param permissions 要查询的权限
+ * @return 权限名称到授权状态的映射（`true` 表示已授权）
+ */
+public fun Context.checkPermissions(vararg permissions: String): Map<String, Boolean> {
+    return permissions.associateWith { AwPermission.isGranted(this, it) }
+}

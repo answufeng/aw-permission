@@ -11,32 +11,29 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 
 /**
- * Headless Fragment that acts as a proxy for permission requests.
+ * 无界面的隐藏 Fragment，作为权限请求的代理。
  *
- * Each permission request creates a new instance of this Fragment. The Fragment uses
- * [ActivityResultContracts.RequestMultiplePermissions] to launch the permission dialog,
- * and suspends the calling coroutine via [suspendCancellableCoroutine] until the user
- * responds.
+ * 每次权限请求创建一个新的 Fragment 实例。Fragment 使用
+ * [ActivityResultContracts.RequestMultiplePermissions] 启动权限对话框，
+ * 并通过 [suspendCancellableCoroutine] 挂起调用方的协程，直到用户响应。
  *
- * ### Lifecycle
- * - Created and added to the Activity via [create] at the start of each request.
- * - Automatically removed from the Activity after the request completes.
- * - If the Fragment is restored from a saved state (configuration change), it cancels
- *   the pending continuation and schedules removal via [scheduleRemoval].
- * - [onDestroy] serves as a fallback to cancel any still-pending continuation.
+ * ### 生命周期
+ * - 每次请求开始时通过 [create] 创建并添加到 Activity。
+ * - 请求完成后自动从 Activity 中移除。
+ * - 如果 Fragment 从保存状态恢复（配置变更），会取消挂起的续体并通过 [scheduleRemoval] 安排移除。
+ * - [onDestroy] 作为兜底，取消仍然挂起的续体。
  *
- * ### Timeout Protection
- * - [requestPermissions] uses [withTimeoutOrNull] with a 60-second timeout.
- *   If the system permission dialog is abnormally closed (rare on some ROMs),
- *   the coroutine will not hang indefinitely. Timed-out permissions are marked as denied.
+ * ### 超时保护
+ * - [requestPermissions] 使用 [withTimeoutOrNull] 设置 60 秒超时。
+ *   如果系统权限对话框异常关闭（某些 ROM 上可能出现），
+ *   协程不会无限挂起。超时的权限会被标记为拒绝。
  *
- * ### Thread Safety
- * - The continuation is stored in an [AtomicReference] to ensure thread-safe access
- *   from both the UI thread (where the launcher callback runs) and any other thread
- *   (where cancellation might occur).
- * - [AtomicLong] is used for tag generation to guarantee unique Fragment tags.
+ * ### 线程安全
+ * - 续体存储在 [AtomicReference] 中，确保从 UI 线程（launcher 回调运行的位置）
+ *   和其他线程（可能发生取消的位置）的线程安全访问。
+ * - 使用 [java.util.concurrent.atomic.AtomicLong] 生成标签，保证 Fragment 标签唯一。
  *
- * This class is internal and managed by [AwPermission].
+ * 此类为内部类，由 [AwPermission] 管理。
  */
 internal class PermissionFragment : Fragment() {
 
@@ -66,14 +63,13 @@ internal class PermissionFragment : Fragment() {
     }
 
     /**
-     * Launches the permission request and suspends until the user responds.
+     * 启动权限请求并挂起直到用户响应。
      *
-     * Includes a 60-second timeout. If the permission dialog is abnormally closed
-     * (e.g., on some custom ROMs), all permissions are marked as denied instead of
-     * hanging the coroutine indefinitely.
+     * 包含 60 秒超时保护。如果权限对话框异常关闭（某些定制 ROM 上可能出现），
+     * 所有权限会被标记为拒绝，而不是让协程无限挂起。
      *
-     * @param permissions The permissions to request
-     * @return A map of permission names to their grant status
+     * @param permissions 要请求的权限
+     * @return 权限名称到授权状态的映射
      */
     internal suspend fun requestPermissions(permissions: Array<String>): Map<String, Boolean> {
         return withTimeoutOrNull(REQUEST_TIMEOUT_MS) {
@@ -97,11 +93,11 @@ internal class PermissionFragment : Fragment() {
     }
 
     /**
-     * Schedules Fragment removal, handling the case where the Fragment is not yet added.
+     * 安排 Fragment 移除，处理 Fragment 尚未添加到 Activity 的情况。
      *
-     * After a configuration change, the Fragment may be restored before it is attached
-     * to the Activity. In this case, [commitAllowingStateLoss] would silently fail.
-     * We use a [DefaultLifecycleObserver] to defer removal until [onResume].
+     * 配置变更后，Fragment 可能在附加到 Activity 之前被恢复。
+     * 此时 [commitAllowingStateLoss] 会静默失败。
+     * 使用 [DefaultLifecycleObserver] 延迟移除到 [onResume] 时机。
      */
     private fun scheduleRemoval() {
         if (isAdded) {

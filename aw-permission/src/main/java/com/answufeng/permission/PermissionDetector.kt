@@ -7,33 +7,39 @@ import android.os.Process
 import androidx.fragment.app.FragmentActivity
 
 /**
- * Enhanced permission denial detection with custom ROM compatibility.
+ * 增强的权限拒绝检测，兼容国产定制 ROM。
  *
- * Standard AOSP uses `shouldShowRequestPermissionRationale` to distinguish
- * between "denied" and "permanently denied" permissions. However, this method
- * has known inconsistencies on custom ROMs (MIUI, EMUI, ColorOS, Flyme, etc.).
+ * 标准 AOSP 使用 `shouldShowRequestPermissionRationale` 来区分"拒绝"和"永久拒绝"。
+ * 然而，此方法在定制 ROM（MIUI、EMUI、ColorOS、Flyme 等）上存在已知的不一致性。
  *
- * This detector provides:
- * - Standard AOSP logic: `wasRationale=true → isRationale=false` = permanently denied
- * - AppOpsManager fallback: when both rationale states are `false` (ambiguous case),
- *   uses `AppOpsManager.checkOpNoThrow` to detect `MODE_IGNORED` as an indicator
- *   of permanent denial
+ * 此检测器提供：
+ * - 标准 AOSP 逻辑：`wasRationale=true → isRationale=false` = 永久拒绝
+ * - AppOpsManager 回退：当两个 rationale 状态都为 `false`（歧义情况）时，
+ *   使用 `AppOpsManager.checkOpNoThrow` 检测 `MODE_IGNORED` 作为永久拒绝的指标
+ *
+ * ### AppOpsManager 工作原理
+ * Android 系统通过 AppOpsService 跟踪每个应用对每个操作（op）的模式：
+ * - `MODE_ALLOWED`：允许
+ * - `MODE_IGNORED`：忽略（通常对应"不再询问"后的状态）
+ * - `MODE_ERRORED`：错误
+ *
+ * 当用户选择"不再询问"时，系统会将对应的 op 模式设为 `MODE_IGNORED`。
+ * 即使 `shouldShowRequestPermissionRationale` 在某些 ROM 上返回不准确，
+ * AppOps 的模式通常仍然是可靠的。
+ *
+ * ### 局限性
+ * - `AppOpsManager.permissionToOp()` 对某些权限可能返回 null（没有对应的 op）
+ * - 某些 ROM 可能修改了 AppOps 的行为
+ * - 此检测是尽力而为的，无法保证 100% 准确
  */
 internal object PermissionDetector {
 
-    private val knownProblematicRoms = setOf(
-        "miui", "emui", "harmony", "coloros", "funtouch",
-        "flyme", "oneui", "smartisan", "nubia", "rog",
-        "vivo", "oppo", "huawei", "xiaomi", "samsung",
-        "meizu", "lenovo", "zte", "asus"
-    )
-
     /**
-     * Checks whether the current device runs a known problematic custom ROM.
+     * 检测当前设备是否运行已知的国产定制 ROM。
      *
-     * Detects via [Build.MANUFACTURER], [Build.BRAND], [Build.DISPLAY], and [Build.FINGERPRINT].
+     * 通过 [Build.MANUFACTURER]、[Build.BRAND]、[Build.DISPLAY] 和 [Build.FINGERPRINT] 检测。
      */
-    fun isProblematicRom(): Boolean {
+    internal fun isProblematicRom(): Boolean {
         val manufacturer = Build.MANUFACTURER.lowercase()
         val brand = Build.BRAND.lowercase()
         val display = Build.DISPLAY ?: ""
@@ -47,20 +53,20 @@ internal object PermissionDetector {
     }
 
     /**
-     * Determines whether a permission was permanently denied.
+     * 判断权限是否被永久拒绝。
      *
-     * Uses a two-tier detection strategy:
-     * 1. **Standard AOSP**: If `wasRationaleBefore=true` and `isRationaleAfter=false`,
-     *    the permission is permanently denied.
-     * 2. **AppOpsManager fallback**: If both rationale states are `false` (ambiguous case
-     *    on first request or custom ROMs), checks `AppOpsManager.checkOpNoThrow`.
-     *    If the result is `MODE_IGNORED`, the permission is considered permanently denied.
+     * 使用两层检测策略：
+     * 1. **标准 AOSP**：如果 `wasRationaleBefore=true` 且 `isRationaleAfter=false`，
+     *    则权限被永久拒绝。
+     * 2. **AppOpsManager 回退**：如果两个 rationale 状态都为 `false`（首次请求或
+     *    定制 ROM 上的歧义情况），检查 `AppOpsManager.checkOpNoThrow`。
+     *    如果结果为 `MODE_IGNORED`，则认为权限被永久拒绝。
      *
-     * @param activity The [FragmentActivity] for context
-     * @param permission The permission to check
-     * @param wasRationaleBefore Whether `shouldShowRequestPermissionRationale` returned `true` before the request
-     * @param isRationaleAfter Whether `shouldShowRequestPermissionRationale` returns `true` after the request
-     * @return `true` if the permission is considered permanently denied
+     * @param activity [FragmentActivity]
+     * @param permission 要检查的权限
+     * @param wasRationaleBefore 请求前 `shouldShowRequestPermissionRationale` 是否返回 `true`
+     * @param isRationaleAfter 请求后 `shouldShowRequestPermissionRationale` 是否返回 `true`
+     * @return 如果权限被认为被永久拒绝则返回 `true`
      */
     fun isPermanentlyDenied(
         activity: FragmentActivity,
@@ -85,14 +91,45 @@ internal object PermissionDetector {
             val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
                 ?: return false
             val op = AppOpsManager.permissionToOp(permission) ?: return false
-            val result = appOps.checkOpNoThrow(
-                op,
-                Process.myUid(),
-                context.packageName
-            )
-            result == AppOpsManager.MODE_IGNORED
+            val uid = Process.myUid()
+            val packageName = context.packageName
+            val checkResult = appOps.checkOpNoThrow(op, uid, packageName)
+            if (checkResult == AppOpsManager.MODE_IGNORED) return true
+            if (checkResult != AppOpsManager.MODE_ALLOWED) {
+                val noteResult = checkViaNoteOp(appOps, op, uid, packageName)
+                if (noteResult == AppOpsManager.MODE_IGNORED) return true
+            }
+            false
         } catch (_: Exception) {
             false
         }
     }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun checkViaNoteOp(
+        appOps: AppOpsManager,
+        op: String,
+        uid: Int,
+        packageName: String
+    ): Int {
+        return try {
+            val method = AppOpsManager::class.java.getMethod(
+                "noteOpNoThrow",
+                String::class.java,
+                Int::class.javaPrimitiveType,
+                String::class.java
+            )
+            method.invoke(appOps, op, uid, packageName) as? Int
+                ?: AppOpsManager.MODE_ALLOWED
+        } catch (_: Exception) {
+            AppOpsManager.MODE_ALLOWED
+        }
+    }
+
+    private val knownProblematicRoms = setOf(
+        "miui", "emui", "harmony", "coloros", "funtouch",
+        "flyme", "oneui", "smartisan", "nubia", "rog",
+        "vivo", "oppo", "huawei", "xiaomi", "samsung",
+        "meizu", "lenovo", "zte", "asus"
+    )
 }

@@ -127,13 +127,23 @@ class PermissionResultTest {
     }
 
     @Test
-    fun `empty result isAllGranted`() {
+    fun `empty result isAllGranted returns false`() {
         val result = PermissionResult(
             granted = emptyList(),
             denied = emptyList(),
             permanentlyDenied = emptyList()
         )
-        assertTrue(result.isAllGranted)
+        assertTrue(result.isEmpty)
+        assertFalse(result.isAllGranted)
+    }
+
+    @Test
+    fun `empty result status is Granted for backward compatibility`() {
+        val result = PermissionResult(
+            granted = emptyList(),
+            denied = emptyList(),
+            permanentlyDenied = emptyList()
+        )
         assertEquals(PermissionResult.Status.Granted, result.status)
     }
 

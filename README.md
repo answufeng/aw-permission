@@ -8,13 +8,17 @@
 
 - 基于协程的权限请求（`suspend` 函数）
 - 互斥锁序列化请求，保证并发安全（rationale 展示也在锁内）
-- 准确区分"拒绝"和"永久拒绝（不再询问）"，国产 ROM 增强检测
-- 挂起式理由回调，支持自定义 UI
+- 准确区分"拒绝"和"永久拒绝（不再询问）"，国产 ROM 增强检测（AppOps + noteOp 双重检测）
+- 挂起式理由回调，支持自定义 UI，可配置触发策略
 - Activity/Fragment 扩展函数 + DSL 风格 API
 - Flow API，用于观察权限状态变化（支持区分永久拒绝）
 - 内置权限组常量（Android 14+ 部分媒体、后台传感器、WiFi 等）
 - 版本自适应权限组（`storage()`、`location()` 自动选择正确权限）
-- 安全的应用设置页导航，国产 ROM 多重回退
+- 安全的应用设置页导航，国产 ROM 多重回退（华为/小米/OPPO/vivo/魅族）
+- 特殊权限引导（自启动/悬浮窗/通知栏/后台弹出/省电策略等）
+- 权限说明辅助工具（中文标签、说明、风险等级）
+- 挂起版 `openAppSettingsAndWait`，返回后自动检查权限
+- 批量权限状态查询
 - Activity 状态校验（isFinishing/isDestroyed）
 - 超时保护机制（60 秒），防止协程永久挂起
 - 隐藏 Fragment 配置变更安全，无泄漏
@@ -96,6 +100,9 @@ lifecycleScope.launch {
     val result4 = AwPermission.request(activity, *PermissionGroups.location())
     // API 31+: 只请求 ACCESS_FINE_LOCATION（系统自动降级到 COARSE）
     // API < 31: 请求 FINE + COARSE
+
+    // 使用 List 入参（无需展开运算符）
+    val result5 = AwPermission.request(activity, PermissionGroups.LOCATION.toList())
 }
 ```
 
@@ -103,26 +110,28 @@ lifecycleScope.launch {
 
 ```kotlin
 lifecycleScope.launch {
+    // 默认策略：仅当系统建议展示理由时触发
     val result = AwPermission.requestWithRationale(
         activity,
         Manifest.permission.CAMERA,
     ) { permissions ->
-        // 挂起函数 — 显示你的理由 UI 并返回 true/false
         showRationaleDialog(permissions)
     }
+
+    // OnDenied 策略：任何未授权的权限都触发（包括首次请求）
+    val result2 = AwPermission.requestWithRationale(
+        activity,
+        Manifest.permission.CAMERA,
+        strategy = RationaleStrategy.OnDenied
+    ) { permissions ->
+        // 使用 PermissionInfo 获取中文说明
+        val descriptions = permissions.mapNotNull { PermissionInfo.getInfo(it)?.description }
+        showRationaleDialog("需要以下权限：\n${descriptions.joinToString("\n")}")
+    }
+
     // 如果用户取消了理由对话框，result 为 null
     if (result != null && result.isAllGranted) {
         openCamera()
-    }
-}
-
-// 也可以从 Fragment 请求
-lifecycleScope.launch {
-    val result = AwPermission.requestWithRationale(
-        fragment,
-        Manifest.permission.CAMERA,
-    ) { permissions ->
-        showRationaleDialog(permissions)
     }
 }
 ```
@@ -132,19 +141,19 @@ lifecycleScope.launch {
 ```kotlin
 // suspend 扩展函数
 lifecycleScope.launch {
-    val result = requestPermissionsResult(Manifest.permission.CAMERA)
+    val result = requestPermissions(Manifest.permission.CAMERA)
     if (result.isAllGranted) { openCamera() }
 }
 
 // 带理由的 suspend 扩展
 lifecycleScope.launch {
-    val result = requestPermissionsResultWithRationale(
+    val result = requestPermissionsWithRationale(
         Manifest.permission.CAMERA
     ) { permissions -> showRationaleDialog(permissions) }
 }
 
 // 基于回调的请求（自动检查 Activity 生命周期安全）
-requirePermissions(
+runWithPermissions(
     Manifest.permission.CAMERA,
     onGranted = { openCamera() },
     onDenied = { result -> handleDenial(result) }
@@ -153,21 +162,41 @@ requirePermissions(
 // 检查权限
 val hasCamera = hasPermission(Manifest.permission.CAMERA)
 val hasAll = hasPermissions(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
+
+// 批量查询权限状态
+val statusMap = checkPermissions(
+    Manifest.permission.CAMERA,
+    Manifest.permission.RECORD_AUDIO
+)
+// statusMap = {CAMERA: true, RECORD_AUDIO: false}
 ```
 
 ### DSL 风格 API
 
 ```kotlin
 lifecycleScope.launch {
-    val result = requestPermissions {
+    val result = buildPermissionRequest {
         permission(Manifest.permission.CAMERA)
         permissionGroup(PermissionGroups.LOCATION)
+        permissions(PermissionGroups.LOCATION.toList())
         rationale { permissions ->
             showRationaleDialog(permissions)
         }
     }
     if (result != null && result.isAllGranted) {
         // 全部授权
+    }
+}
+```
+
+### 打开设置页并等待返回
+
+```kotlin
+lifecycleScope.launch {
+    // 打开设置页，用户返回后自动检查权限
+    val result = openAppSettingsAndWait(Manifest.permission.CAMERA)
+    if (result.isGranted(Manifest.permission.CAMERA)) {
+        // 用户已在设置中授权
     }
 }
 ```
@@ -186,6 +215,47 @@ lifecycleScope.launch {
         }
     }
 }
+```
+
+### 权限说明
+
+```kotlin
+// 获取权限的中文标签和说明
+val info = PermissionInfo.getInfo(Manifest.permission.CAMERA)
+// info.label = "相机"
+// info.description = "用于拍照和录像"
+// info.riskLevel = RiskLevel.DANGEROUS
+
+// 批量获取
+val infos = PermissionInfo.getInfos(
+    Manifest.permission.CAMERA,
+    Manifest.permission.RECORD_AUDIO
+)
+
+// 便捷方法
+val label = PermissionInfo.getLabel(Manifest.permission.CAMERA) // "相机"
+val desc = PermissionInfo.getDescription(Manifest.permission.CAMERA) // "用于拍照和录像"
+```
+
+### 特殊权限引导
+
+国产 ROM 有很多非标准权限需要引导用户手动开启：
+
+```kotlin
+// 自启动权限
+SpecialPermission.openSettings(context, SpecialPermission.PermissionType.AUTO_START)
+
+// 悬浮窗权限
+SpecialPermission.openSettings(context, SpecialPermission.PermissionType.FLOAT_WINDOW)
+
+// 通知栏权限
+SpecialPermission.openSettings(context, SpecialPermission.PermissionType.NOTIFICATION_LISTENER)
+
+// 后台弹出界面权限
+SpecialPermission.openSettings(context, SpecialPermission.PermissionType.BACKGROUND_POPUP)
+
+// 电池优化白名单
+SpecialPermission.openSettings(context, SpecialPermission.PermissionType.IGNORE_BATTERY_OPTIMIZATION)
 ```
 
 ### 检查权限
@@ -208,7 +278,7 @@ if (AwPermission.shouldShowRationale(activity, Manifest.permission.CAMERA)) {
 
 ```kotlin
 val success = AwPermission.openAppSettings(context)
-// 自动适配国产 ROM（华为安全中心、小米安全中心等）
+// 自动适配国产 ROM（华为/小米/OPPO/vivo/魅族安全中心等）
 // 如果所有方式均无法打开则返回 false
 ```
 
@@ -223,10 +293,16 @@ val success = AwPermission.openAppSettings(context)
 | `shouldShowRationale(activity, permission)` | 检查是否应展示权限理由 |
 | `permissionsRequiringRationale(activity, vararg permissions)` | 返回需要理由说明的权限列表 |
 | `request(activity, vararg permissions)` | 请求权限（挂起函数，`@CheckResult`） |
+| `request(activity, permissions: List<String>)` | 请求权限（List 入参） |
 | `request(fragment, vararg permissions)` | 从 Fragment 请求权限（挂起函数） |
-| `requestWithRationale(activity, vararg permissions, rationale)` | 带理由的请求（挂起函数，取消时返回 null） |
-| `requestWithRationale(fragment, vararg permissions, rationale)` | 从 Fragment 带理由的请求 |
+| `request(fragment, permissions: List<String>)` | 从 Fragment 请求权限（List 入参） |
+| `requestWithRationale(activity, vararg, rationale)` | 带理由的请求（挂起函数，取消时返回 null） |
+| `requestWithRationale(activity, vararg, strategy, rationale)` | 带理由的请求（可指定触发策略） |
+| `requestWithRationale(fragment, vararg, rationale)` | 从 Fragment 带理由的请求 |
+| `requestWithRationale(fragment, vararg, strategy, rationale)` | 从 Fragment 带理由的请求（可指定触发策略） |
 | `openAppSettings(context)` | 打开应用设置页（国产 ROM 多重回退），不可用时返回 false |
+| `openAppSettingsAndWait(activity, vararg permissions)` | 打开设置页并等待返回后检查权限（挂起函数） |
+| `openAppSettingsAndWait(fragment, vararg permissions)` | 从 Fragment 打开设置页并等待返回后检查权限 |
 
 ### PermissionResult
 
@@ -235,16 +311,44 @@ val success = AwPermission.openAppSettings(context)
 | `granted` | 已授权的权限列表 |
 | `denied` | 被拒绝的权限列表 |
 | `permanentlyDenied` | 被永久拒绝的权限列表 |
-| `isAllGranted` | 是否所有权限均已授权 |
+| `isEmpty` | 三个列表全为空时返回 true |
+| `isAllGranted` | 是否所有权限均已授权（空结果返回 false） |
 | `hasDenied` | 是否存在被拒绝的权限 |
 | `hasPermanentlyDenied` | 是否存在被永久拒绝的权限 |
+| `grantedCount` | 已授权的权限数量 |
+| `deniedCount` | 被拒绝的权限数量 |
+| `permanentlyDeniedCount` | 被永久拒绝的权限数量 |
+| `status` | 整体状态：`Granted`、`Denied` 或 `PermanentlyDenied` |
 | `firstDenied` | 第一个被拒绝的权限，若没有则为 null |
 | `firstPermanentlyDenied` | 第一个被永久拒绝的权限，若没有则为 null |
 | `allDenied` | 所有被拒绝的权限（denied + permanentlyDenied） |
-| `status` | 整体状态：`Granted`、`Denied` 或 `PermanentlyDenied` |
-| `isGranted(permission)` | 检查指定权限是否已授予 |
-| `isDenied(permission)` | 检查指定权限是否被拒绝（非永久） |
-| `isPermanentlyDenied(permission)` | 检查指定权限是否被永久拒绝 |
+| `isGranted(permission)` | 检查指定权限是否已授予（O(1)） |
+| `isDenied(permission)` | 检查指定权限是否被拒绝（O(1)） |
+| `isPermanentlyDenied(permission)` | 检查指定权限是否被永久拒绝（O(1)） |
+
+### RationaleStrategy
+
+| 策略 | 说明 |
+|------|------|
+| `OnShouldShow` | 仅当系统建议展示理由时触发（默认） |
+| `OnDenied` | 任何未授权的权限都触发（包括首次请求） |
+
+### PermissionInfo
+
+| 方法 | 说明 |
+|------|------|
+| `getInfo(permission)` | 获取权限信息（标签、说明、风险等级） |
+| `getLabel(permission)` | 获取权限中文标签 |
+| `getDescription(permission)` | 获取权限中文说明 |
+| `getInfos(vararg permissions)` | 批量获取权限信息 |
+
+### SpecialPermission
+
+| 方法 | 说明 |
+|------|------|
+| `openSettings(context, permissionType)` | 打开特殊权限设置页 |
+
+支持的权限类型：`AUTO_START`、`NOTIFICATION_LISTENER`、`FLOAT_WINDOW`、`BACKGROUND_POPUP`、`BATTERY_SAVING`、`IGNORE_BATTERY_OPTIMIZATION`
 
 ### PermissionGroups
 
@@ -284,15 +388,18 @@ val success = AwPermission.openAppSettings(context)
 |------|------|
 | `Context.hasPermission(permission)` | 检查单个权限 |
 | `Context.hasPermissions(vararg permissions)` | 检查所有权限 |
-| `FragmentActivity.requestPermissionsResult(vararg)` | suspend 请求权限 |
-| `Fragment.requestPermissionsResult(vararg)` | 从 Fragment suspend 请求权限 |
-| `FragmentActivity.requestPermissionsResultWithRationale(vararg, rationale)` | suspend 带理由请求 |
-| `Fragment.requestPermissionsResultWithRationale(vararg, rationale)` | 从 Fragment suspend 带理由请求 |
-| `FragmentActivity.requirePermissions(vararg, onGranted, onDenied)` | 带授权/拒绝处理器的请求（生命周期安全） |
-| `Fragment.requirePermissions(vararg, onGranted, onDenied)` | 从 Fragment 带处理器的请求 |
+| `Context.checkPermissions(vararg permissions)` | 批量查询权限状态，返回 Map |
+| `FragmentActivity.requestPermissions(vararg)` | suspend 请求权限 |
+| `Fragment.requestPermissions(vararg)` | 从 Fragment suspend 请求权限 |
+| `FragmentActivity.requestPermissionsWithRationale(vararg, strategy, rationale)` | suspend 带理由请求 |
+| `Fragment.requestPermissionsWithRationale(vararg, strategy, rationale)` | 从 Fragment suspend 带理由请求 |
+| `FragmentActivity.runWithPermissions(vararg, onGranted, onDenied)` | 带授权/拒绝处理器的请求（生命周期安全） |
+| `Fragment.runWithPermissions(vararg, onGranted, onDenied)` | 从 Fragment 带处理器的请求 |
 | `FragmentActivity.observePermissions(vararg)` | 每次 Activity 恢复时发射的 Flow（区分永久拒绝） |
-| `FragmentActivity.requestPermissions(block)` | DSL 风格请求 |
-| `Fragment.requestPermissions(block)` | 从 Fragment DSL 风格请求 |
+| `FragmentActivity.openAppSettingsAndWait(vararg)` | 打开设置页并等待返回后检查权限 |
+| `Fragment.openAppSettingsAndWait(vararg)` | 从 Fragment 打开设置页并等待返回 |
+| `FragmentActivity.buildPermissionRequest(block)` | DSL 风格请求 |
+| `Fragment.buildPermissionRequest(block)` | 从 Fragment DSL 风格请求 |
 
 ## 工作原理
 
@@ -322,13 +429,14 @@ val success = AwPermission.openAppSettings(context)
 | 后续拒绝 | `true` | `true` | 拒绝 |
 | 已勾选"不再询问" | `true` | `false` | 永久拒绝 |
 
-*\* 在首次请求时，如果用户选择了"不再询问"，标准 AOSP 无法将其与普通首次拒绝区分。本库通过 `AppOpsManager.checkOpNoThrow` 进行增强检测，在国产 ROM 上也能准确识别永久拒绝。*
+*\* 在首次请求时，如果用户选择了"不再询问"，标准 AOSP 无法将其与普通首次拒绝区分。本库通过 `AppOpsManager.checkOpNoThrow` + `noteOpNoThrow` 双重检测，在国产 ROM 上也能准确识别永久拒绝。*
 
 ### 国产 ROM 兼容
 
 本库包含以下国产 ROM 适配：
-- **永久拒绝检测**：通过 `AppOpsManager` 回退检测，兼容 MIUI/EMUI/ColorOS/Flyme 等
-- **openAppSettings**：多重 Intent 回退链（标准设置页 → 华为安全中心 → 小米安全中心 → 最终回退）
+- **永久拒绝检测**：通过 `AppOpsManager` 回退检测（checkOp + noteOp 双重检测），兼容 MIUI/EMUI/ColorOS/Flyme 等
+- **openAppSettings**：多重 Intent 回退链（标准设置页 → 华为安全中心 → 小米安全中心 → OPPO → vivo → 魅族 → 最终回退）
+- **特殊权限引导**：自启动/悬浮窗/通知栏/后台弹出/省电策略等国产 ROM 特有权限
 - **超时保护**：60 秒超时防止国产 ROM 权限对话框异常关闭导致协程永久挂起
 - **配置变更安全**：隐藏 Fragment 在配置变更后通过 `DefaultLifecycleObserver` 延迟移除，无泄漏
 
@@ -349,15 +457,15 @@ val result = AwPermission.request(requireActivity(), Manifest.permission.CAMERA)
 ### 自定义 ROM 兼容性如何？
 
 本库包含以下安全检查：
-- `openAppSettings()` 使用多重 Intent 回退链，适配华为/小米等国产 ROM
+- `openAppSettings()` 使用多重 Intent 回退链，适配华为/小米/OPPO/vivo/魅族等国产 ROM
 - Activity 状态检查防止在正在结束/已销毁的 Activity 上崩溃
 - 权限启动器抛出的 `IllegalStateException` 会被捕获并作为取消传播
-- `AppOpsManager` 增强检测国产 ROM 上的永久拒绝
+- `AppOpsManager` 增强检测国产 ROM 上的永久拒绝（checkOp + noteOp 双重检测）
 - 60 秒超时保护防止协程永久挂起
 
 ### Flow API 是如何工作的？
 
-`observePermissions()` 创建一个 Flow，在每次 Activity 恢复时发射当前权限状态。这对于检测用户从系统设置页返回后授权/拒绝权限的情况非常有用。Flow 现在支持区分 `denied` 和 `permanentlyDenied`，方便你引导用户去设置页。
+`observePermissions()` 创建一个 Flow，在每次 Activity 恢复时发射当前权限状态。这对于检测用户从系统设置页返回后授权/拒绝权限的情况非常有用。Flow 使用 `PermissionDetector` 的 AppOps 增强检测来区分"从未请求"和"永久拒绝"，比简单的 `shouldShowRequestPermissionRationale` 检测更准确。
 
 ### DSL API 和直接调用有什么区别？
 
@@ -365,7 +473,7 @@ DSL API 是语法糖，将权限列表和 rationale 回调统一在一个 block 
 
 ```kotlin
 // DSL 风格
-val result = requestPermissions {
+val result = buildPermissionRequest {
     permission(Manifest.permission.CAMERA)
     permissionGroup(PermissionGroups.LOCATION)
     rationale { showRationaleDialog(it) }
@@ -378,6 +486,10 @@ val result = AwPermission.requestWithRationale(
     *PermissionGroups.LOCATION
 ) { showRationaleDialog(it) }
 ```
+
+### 如何处理 Android 14 部分媒体权限？
+
+Android 14 引入了 `READ_MEDIA_VISUAL_USER_SELECTED` 权限，允许用户选择特定的照片和视频。此权限的行为与其他权限不同——即使获得此权限，也不代表获得了完整的媒体访问权限。建议在使用 `PermissionGroups.storage()` 时注意此权限的特殊行为。
 
 ## 许可证
 

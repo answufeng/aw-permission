@@ -10,12 +10,16 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.answufeng.permission.AwPermission
 import com.answufeng.permission.PermissionGroups
+import com.answufeng.permission.PermissionInfo
+import com.answufeng.permission.RationaleStrategy
+import com.answufeng.permission.SpecialPermission
+import com.answufeng.permission.buildPermissionRequest
 import com.answufeng.permission.hasPermission
 import com.answufeng.permission.observePermissions
+import com.answufeng.permission.openAppSettingsAndWait
 import com.answufeng.permission.requestPermissions
-import com.answufeng.permission.requestPermissionsResult
-import com.answufeng.permission.requestPermissionsResultWithRationale
-import com.answufeng.permission.requirePermissions
+import com.answufeng.permission.requestPermissionsWithRationale
+import com.answufeng.permission.runWithPermissions
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -75,17 +79,14 @@ class MainActivity : AppCompatActivity() {
     private fun requestLocation() {
         lifecycleScope.launch {
             log("🔄 开始请求定位权限...")
-            val result = AwPermission.request(
-                this@MainActivity,
-                *PermissionGroups.location()
-            )
+            val result = AwPermission.request(this@MainActivity, *PermissionGroups.location())
             log("📍 定位权限: 全部授予=${result.isAllGranted}, 状态=${result.status}")
         }
     }
 
     private fun requestMultiple() {
         log("🔄 开始请求多个权限...")
-        requirePermissions(
+        runWithPermissions(
             Manifest.permission.CAMERA,
             Manifest.permission.RECORD_AUDIO,
             onGranted = { log("✅ 所有权限已授予！") },
@@ -101,11 +102,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestWithRationale() {
         lifecycleScope.launch {
-            log("🔄 开始请求带说明的权限...")
-            val result = requestPermissionsResultWithRationale(
+            log("🔄 开始请求带说明的权限（OnDenied 策略）...")
+            val result = requestPermissionsWithRationale(
                 Manifest.permission.CAMERA,
+                strategy = RationaleStrategy.OnDenied
             ) { permissions ->
-                showRationaleDialog(permissions)
+                val descriptions = permissions.map {
+                    val info = PermissionInfo.getInfo(it)
+                    "${info?.label ?: it}: ${info?.description ?: ""}"
+                }
+                showRationaleDialog("需要以下权限：\n${descriptions.joinToString("\n")}")
             }
             if (result != null) {
                 log("📝 说明结果: 全部授予=${result.isAllGranted}")
@@ -118,11 +124,12 @@ class MainActivity : AppCompatActivity() {
     private fun dslRequest() {
         lifecycleScope.launch {
             log("🔄 开始 DSL 风格权限请求...")
-            val result = requestPermissions {
+            val result = buildPermissionRequest {
                 permission(Manifest.permission.CAMERA)
                 permissionGroup(PermissionGroups.LOCATION)
                 rationale { permissions ->
-                    showRationaleDialog(permissions)
+                    val descriptions = permissions.mapNotNull { PermissionInfo.getInfo(it)?.label }
+                    showRationaleDialog("需要以下权限：${descriptions.joinToString("、")}")
                 }
             }
             if (result != null) {
@@ -143,22 +150,33 @@ class MainActivity : AppCompatActivity() {
         val hasCamera = hasPermission(Manifest.permission.CAMERA)
         log("🔍 相机权限状态: $hasCamera")
 
+        val info = PermissionInfo.getInfo(Manifest.permission.CAMERA)
+        if (info != null) {
+            log("📋 权限信息: ${info.label} - ${info.description} (${info.riskLevel})")
+        }
+
         lifecycleScope.launch {
-            val result = requestPermissionsResult(Manifest.permission.CAMERA)
+            val result = requestPermissions(Manifest.permission.CAMERA)
             log("🔍 挂起结果: ${result.status}")
         }
     }
 
     private fun openSettings() {
-        val success = AwPermission.openAppSettings(this)
-        log("⚙️ 打开设置页面: $success")
+        lifecycleScope.launch {
+            log("⚙️ 打开设置页面并等待返回...")
+            val result = openAppSettingsAndWait(Manifest.permission.CAMERA)
+            log("⚙️ 返回后权限状态: 已授予=${result.granted}, 已拒绝=${result.denied}, 永久拒绝=${result.permanentlyDenied}")
+            if (result.isGranted(Manifest.permission.CAMERA)) {
+                log("✅ 用户已在设置中授予相机权限！")
+            }
+        }
     }
 
-    private suspend fun showRationaleDialog(permissions: List<String>): Boolean {
+    private suspend fun showRationaleDialog(message: String): Boolean {
         return suspendCancellableCoroutine { cont ->
             val dialog = AlertDialog.Builder(this)
                 .setTitle("需要权限")
-                .setMessage("需要以下权限: ${permissions.joinToString()}\n\n是否继续？")
+                .setMessage(message)
                 .setPositiveButton("允许") { _, _ -> cont.resume(true) }
                 .setNegativeButton("拒绝") { _, _ -> cont.resume(false) }
                 .setOnCancelListener { cont.resume(false) }

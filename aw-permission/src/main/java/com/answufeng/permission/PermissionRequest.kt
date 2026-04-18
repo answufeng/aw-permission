@@ -4,55 +4,55 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 
 /**
- * A permission request configuration used by the DSL-style [requestPermissions] API.
+ * DSL 风格权限请求配置。
  *
  * ```kotlin
- * val result = requestPermissions {
+ * val result = buildPermissionRequest {
  *     permission(Manifest.permission.CAMERA)
  *     permissionGroup(PermissionGroups.LOCATION)
  *     rationale { permissions -> showRationaleDialog(permissions) }
  * }
  * ```
  *
- * @property permissions The list of permission names to request.
- * @property rationale An optional suspend lambda to show rationale for permissions that need it.
+ * @property permissions 要请求的权限名称列表
+ * @property rationale 可选的挂起 Lambda，用于在请求前展示权限理由说明
  */
 public class PermissionRequest internal constructor(
     public val permissions: List<String>,
     public val rationale: (suspend (List<String>) -> Boolean)?
 ) {
     /**
-     * Builder for constructing a [PermissionRequest] using a DSL-style API.
+     * DSL 风格的 [PermissionRequest] 构建器。
      */
     public class Builder {
         private val permissions = mutableListOf<String>()
         private var rationale: (suspend (List<String>) -> Boolean)? = null
 
-        /** Adds a single permission to the request. */
+        /** 添加单个权限。 */
         public fun permission(permission: String) {
             permissions.add(permission)
         }
 
-        /** Adds multiple permissions to the request. */
+        /** 添加多个权限。 */
         public fun permissions(vararg permissions: String) {
             this.permissions.addAll(permissions)
         }
 
-        /** Adds all permissions from a permission group (e.g., [PermissionGroups.LOCATION]). */
+        /** 添加权限组中的所有权限（如 [PermissionGroups.LOCATION]）。 */
         public fun permissionGroup(permissions: Array<String>) {
             this.permissions.addAll(permissions)
         }
 
-        /** Adds all permissions from a collection. */
+        /** 添加集合中的所有权限。 */
         public fun permissions(permissions: Collection<String>) {
             this.permissions.addAll(permissions)
         }
 
         /**
-         * Sets the rationale callback.
+         * 设置权限理由说明回调。
          *
-         * Called with the list of permissions that need rationale before the request proceeds.
-         * Return `true` to continue with the request, `false` to cancel.
+         * 在请求前被调用，传入需要理由说明的权限列表。
+         * 返回 `true` 继续请求，返回 `false` 取消。
          */
         public fun rationale(block: suspend (List<String>) -> Boolean) {
             rationale = block
@@ -66,10 +66,10 @@ public class PermissionRequest internal constructor(
 }
 
 /**
- * DSL-style permission request for [FragmentActivity].
+ * DSL 风格权限请求（[FragmentActivity] 扩展）。
  *
  * ```kotlin
- * val result = requestPermissions {
+ * val result = buildPermissionRequest {
  *     permission(Manifest.permission.CAMERA)
  *     permissionGroup(PermissionGroups.LOCATION)
  *     rationale { permissions -> showRationaleDialog(permissions) }
@@ -77,10 +77,10 @@ public class PermissionRequest internal constructor(
  * ```
  *
  * @receiver [FragmentActivity]
- * @param block Configuration block applied to a [PermissionRequest.Builder]
- * @return [PermissionResult] if the request proceeded, `null` if the user cancelled the rationale
+ * @param block 应用于 [PermissionRequest.Builder] 的配置块
+ * @return 请求继续则返回 [PermissionResult]，用户取消理由说明则返回 `null`
  */
-public suspend fun FragmentActivity.requestPermissions(
+public suspend fun FragmentActivity.buildPermissionRequest(
     block: PermissionRequest.Builder.() -> Unit
 ): PermissionResult? {
     val request = PermissionRequest.Builder().apply(block).build()
@@ -92,13 +92,13 @@ public suspend fun FragmentActivity.requestPermissions(
 }
 
 /**
- * DSL-style permission request for [Fragment].
+ * DSL 风格权限请求（[Fragment] 扩展）。
  *
  * @receiver [Fragment]
- * @param block Configuration block applied to a [PermissionRequest.Builder]
- * @return [PermissionResult] if the request proceeded, `null` if the user cancelled the rationale
+ * @param block 应用于 [PermissionRequest.Builder] 的配置块
+ * @return 请求继续则返回 [PermissionResult]，用户取消理由说明则返回 `null`
  */
-public suspend fun Fragment.requestPermissions(
+public suspend fun Fragment.buildPermissionRequest(
     block: PermissionRequest.Builder.() -> Unit
 ): PermissionResult? {
     val request = PermissionRequest.Builder().apply(block).build()
