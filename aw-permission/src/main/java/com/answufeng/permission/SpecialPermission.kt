@@ -107,7 +107,8 @@ public object SpecialPermission {
 
     private fun checkNotificationListenerPermission(context: Context): Boolean {
         val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners") ?: return false
-        return flat.contains(context.packageName)
+        val packageName = context.packageName
+        return flat.split(":").any { it.contains(packageName) }
     }
 
     private fun checkIgnoreBatteryOptimization(context: Context): Boolean {
