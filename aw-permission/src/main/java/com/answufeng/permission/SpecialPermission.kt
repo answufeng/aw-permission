@@ -191,6 +191,13 @@ public object SpecialPermission {
         })
         add(Intent().apply {
             component = ComponentName(
+                "com.huawei.systemmanager",
+                "com.huawei.systemmanager.optimize.process.ProtectActivity"
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+        add(Intent().apply {
+            component = ComponentName(
                 "com.coloros.safecenter",
                 "com.coloros.safecenter.permission.startup.StartupAppListActivity"
             )
@@ -207,6 +214,13 @@ public object SpecialPermission {
             component = ComponentName(
                 "com.vivo.abe.uniui",
                 "com.vivo.abe.uniui.BgStartUpManagerActivity"
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+        add(Intent().apply {
+            component = ComponentName(
+                "com.vivo.abe",
+                "com.vivo.abe.BgStartUpManagerActivity"
             )
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
