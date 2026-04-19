@@ -4,6 +4,9 @@
 -keep class com.answufeng.permission.AwPermission$LogLevel { public *; }
 -keep class com.answufeng.permission.PermissionResult { public *; }
 -keep class com.answufeng.permission.PermissionResult$Status { public *; }
+-keep class com.answufeng.permission.PermissionResult$Status$Granted { public *; }
+-keep class com.answufeng.permission.PermissionResult$Status$Denied { public *; }
+-keep class com.answufeng.permission.PermissionResult$Status$PermanentlyDenied { public *; }
 -keep class com.answufeng.permission.RationaleStrategy { public *; }
 -keep class com.answufeng.permission.PermissionGroups { public *; }
 -keep class com.answufeng.permission.PermissionInfo { public *; }
