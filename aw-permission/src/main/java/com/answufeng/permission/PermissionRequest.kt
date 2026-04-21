@@ -36,22 +36,38 @@ public class PermissionRequest internal constructor(
         private var rationale: (suspend (List<String>) -> Boolean)? = null
         private var strategy: RationaleStrategy = RationaleStrategy.OnShouldShow
 
-        /** 添加单个权限。 */
+        /**
+         * 添加单个权限。
+         *
+         * @param permission 权限名称（如 `Manifest.permission.CAMERA`）
+         */
         public fun permission(permission: String) {
             permissions.add(permission)
         }
 
-        /** 添加多个权限。 */
+        /**
+         * 添加多个权限。
+         *
+         * @param permissions 权限名称列表
+         */
         public fun permissions(vararg permissions: String) {
             this.permissions.addAll(permissions)
         }
 
-        /** 添加权限组中的所有权限（如 [PermissionGroups.LOCATION]）。 */
+        /**
+         * 添加权限组中的所有权限（如 [PermissionGroups.LOCATION]）。
+         *
+         * @param permissions 权限数组
+         */
         public fun permissionGroup(permissions: Array<String>) {
             this.permissions.addAll(permissions)
         }
 
-        /** 添加集合中的所有权限。 */
+        /**
+         * 添加集合中的所有权限。
+         *
+         * @param permissions 权限集合
+         */
         public fun permissions(permissions: Collection<String>) {
             this.permissions.addAll(permissions)
         }

@@ -1,4 +1,3 @@
-
 # aw-permission ProGuard Rules
 # 此文件用于库自身的 release 构建混淆规则
 # Consumer-facing rules（供使用者混淆时使用）位于 consumer-rules.pro
@@ -26,24 +25,9 @@
 }
 
 # ===========================================================
-# 保留 Serializable
+# 反射方法保护（PermissionDetector.noteOpNoThrow）
 # ===========================================================
 
--keepclassmembers class * implements java.io.Serializable {
-    static final long serialVersionUID;
-    private static final java.io.ObjectStreamField[] serialPersistentFields;
-    !static !transient <fields>;
-    private void writeObject(java.io.ObjectOutputStream);
-    private void readObject(java.io.ObjectInputStream);
-    java.lang.Object writeReplace();
-    java.lang.Object readResolve();
+-keepclassmembers class android.app.AppOpsManager {
+    int noteOpNoThrow(java.lang.String, int, java.lang.String);
 }
-
-# ===========================================================
-# 保留 Parcelable CREATOR
-# ===========================================================
-
--keepclassmembers class * implements android.os.Parcelable {
-    public static final android.os.Parcelable$Creator *;
-}
-

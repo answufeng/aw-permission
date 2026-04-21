@@ -166,6 +166,8 @@ public fun Fragment.runWithPermissions(
  * 每次 Activity 恢复到 [Lifecycle.State.RESUMED] 时发射当前权限状态。
  * 适用于检测用户从系统设置页返回后的权限变化。
  *
+ * 此方法必须在主线程调用，因为它依赖于 Activity 的 lifecycleScope。
+ *
  * Flow 发射的 [PermissionResult] 会区分 `denied` 和 `permanentlyDenied`：
  * - 未授权且 `shouldShowRequestPermissionRationale` 返回 `true` → `denied`
  * - 未授权且 `shouldShowRequestPermissionRationale` 返回 `false` 且 AppOps 检测为 `MODE_IGNORED` → `permanentlyDenied`

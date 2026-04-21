@@ -7,28 +7,22 @@
 ## 特性
 
 - 基于协程的权限请求（`suspend` 函数）
-- 互斥锁序列化请求，保证并发安全（rationale 展示也在锁内）
-- 准确区分"拒绝"和"永久拒绝（不再询问）"，国产 ROM 增强检测（AppOps + noteOp 双重检测 + 请求历史记录）
+- 互斥锁序列化请求，保证并发安全
+- 准确区分"拒绝"和"永久拒绝（不再询问）"，国产 ROM 增强检测
 - 挂起式理由回调，支持自定义 UI，可配置触发策略
-- Activity/Fragment 扩展函数 + DSL 风格 API（支持 strategy 配置）
-- Flow API，用于观察权限状态变化（支持区分永久拒绝）
-- 内置权限组常量（Android 14+ 部分媒体、后台传感器、WiFi 等）
-- 版本自适应权限组（`storage()`、`location()` 自动选择正确权限）
-- 安全的应用设置页导航，国产 ROM 多重回退（华为/小米/OPPO/vivo/魅族）
-- 特殊权限引导（自启动/悬浮窗/通知栏/后台弹出/省电策略等）+ 状态检查
-- 权限说明辅助工具（中文标签、说明、风险等级）
-- 挂起版 `openAppSettingsAndWait`，返回后自动检查权限（含超时保护）
-- 批量权限状态查询
-- 可配置的日志系统
-- 重复权限自动去重
-- Activity 状态校验（isFinishing/isDestroyed）
-- 超时保护机制（权限请求 60 秒，设置页等待 120 秒），防止协程永久挂起
-- 隐藏 Fragment 配置变更安全，无泄漏
+- Activity/Fragment 扩展函数 + DSL 风格 API
+- Flow API 观察权限状态变化
+- 内置权限组常量，版本自适应（`storage()`、`location()`）
+- 应用设置页导航 + `openAppSettingsAndWait` 挂起等待
+- 特殊权限引导（自启动/悬浮窗/通知栏/后台弹出/省电策略等）
+- 超时保护 + 生命周期安全 + 配置变更安全
 
 ## 环境要求
 
 - **minSdk**: 24+
+- **compileSdk**: 35
 - **Kotlin**: 2.0+
+- **JVM Target**: 17
 - **Kotlin 协程**: 1.9+
 - **AndroidX**: Activity 1.9+, Fragment 1.8+
 
@@ -48,13 +42,23 @@ dependencies {
 }
 ```
 
-## 快速开始
+## Quick Start (3 steps)
 
-### 简单请求
+**Step 1: 添加依赖** → 见上方 [引入](#引入)
+
+**Step 2: 请求权限**
 
 ```kotlin
 lifecycleScope.launch {
-    val result = AwPermission.request(activity, Manifest.permission.CAMERA)
+    val result = AwPermission.request(this@MainActivity, Manifest.permission.CAMERA)
+}
+```
+
+**Step 3: 处理结果**
+
+```kotlin
+lifecycleScope.launch {
+    val result = AwPermission.request(this@MainActivity, Manifest.permission.CAMERA)
     if (result.isAllGranted) {
         openCamera()
     } else if (result.hasPermanentlyDenied) {
@@ -62,6 +66,10 @@ lifecycleScope.launch {
     }
 }
 ```
+
+---
+
+## 进阶用法
 
 ### 多个权限
 

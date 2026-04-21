@@ -16,6 +16,7 @@ import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * 基于协程 + 隐藏 Fragment 构建的 Android 运行时权限请求工具。
@@ -103,8 +104,7 @@ object AwPermission {
         DEBUG, INFO, WARN, ERROR
     }
 
-    @Volatile
-    private var logger: ((level: LogLevel, tag: String, msg: String) -> Unit)? = null
+    private val loggerRef = AtomicReference<((level: LogLevel, tag: String, msg: String) -> Unit)?>(null)
 
     /**
      * 设置自定义日志输出。
@@ -124,15 +124,17 @@ object AwPermission {
      * @param logger 日志回调，接收级别、标签和消息
      */
     public fun setLogger(logger: ((level: LogLevel, tag: String, msg: String) -> Unit)?) {
-        this.logger = logger
+        loggerRef.set(logger)
     }
 
     internal fun log(level: LogLevel, msg: String) {
-        logger?.invoke(level, LOG_TAG, msg)
+        loggerRef.get()?.invoke(level, LOG_TAG, msg)
     }
 
     /**
      * 检查单个权限是否已授权。
+     *
+     * 此方法可在任意线程调用。
      *
      * @param context 任意 [Context]
      * @param permission 权限名称（如 `Manifest.permission.CAMERA`）
@@ -144,6 +146,8 @@ object AwPermission {
 
     /**
      * 检查所有指定权限是否已授权。
+     *
+     * 此方法可在任意线程调用。
      *
      * @param context 任意 [Context]
      * @param permissions 要检查的权限名称
@@ -453,7 +457,8 @@ object AwPermission {
                                     }
                                 }
                             }
-                            cont.resume(PermissionResult(granted = granted, denied = denied, permanentlyDenied = permanentlyDenied)) {}
+                            @Suppress("DEPRECATION")
+                            cont.resume(PermissionResult(granted = granted, denied = denied, permanentlyDenied = permanentlyDenied), onCancellation = { })
                         }
                     }
                 }
