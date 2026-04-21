@@ -25,15 +25,15 @@
 # PermissionFragment (hidden Fragment, must not be removed)
 -keep class com.answufeng.permission.PermissionFragment { public *; }
 
-# PermissionDetector (internal detection logic)
--keep class com.answufeng.permission.PermissionDetector { public *; }
+# PermissionDetector (internal detection logic, keep class name only)
+-keep class com.answufeng.permission.PermissionDetector
 
 # PermissionRequest / Builder
 -keep class com.answufeng.permission.PermissionRequest { public *; }
 -keep class com.answufeng.permission.PermissionRequest$Builder { public *; }
 
-# PermissionHistory (internal tracking)
--keep class com.answufeng.permission.PermissionHistory { public *; }
+# PermissionHistory (internal tracking, keep class name only)
+-keep class com.answufeng.permission.PermissionHistory
 
 # Extension functions
 -keepclassmembers class com.answufeng.permission.PermissionExtKt { public *; }
