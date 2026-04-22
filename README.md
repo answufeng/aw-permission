@@ -4,6 +4,12 @@
 
 基于协程 + 隐藏 Fragment 构建的 Android 运行时权限库。无需重写 `onRequestPermissionsResult`。
 
+## 文档导读
+
+1. [工程品质与发版检查](#工程品质与发版检查) → [Quick Start](#quick-start-3-steps) → [进阶用法](#进阶用法)  
+2. 国产 ROM：[PermissionDetector 与维护策略](#permissiondetector-与国产-rom-维护策略)  
+3. 演示：[demo/DEMO_MATRIX.md](demo/DEMO_MATRIX.md)（含 **推荐手测**）
+
 ## 特性
 
 - 基于协程的权限请求（`suspend` 函数）
@@ -33,6 +39,13 @@
 - **本地建议**：`./gradlew :aw-permission:assembleRelease :aw-permission:ktlintCheck :aw-permission:lintRelease :demo:assembleRelease`
 - **演示**：[demo/DEMO_MATRIX.md](demo/DEMO_MATRIX.md)；demo **「演示清单」** 菜单。
 - **上线前**：在目标 **minSdk～最新系统** 与至少一台国产 ROM 上跑通「拒绝 / 永久拒绝 / 设置返回」；依赖库内超时仅作异常兜底，勿当成功路径。
+
+## PermissionDetector 与国产 ROM 维护策略
+
+- **现实**：厂商权限页 Intent、AppOps 行为会随系统升级变化；库内通过 **`PermissionDetector`** 与 `queries` 合并提高命中率，但 **无法保证全机型永久有效**。  
+- **维护方式**：若某机型「永久拒绝」误判或设置页打不开，请在本仓库提 Issue/PR，**优先补 `PermissionDetector` 启发式或策略回退**，避免业务侧复制魔改。  
+- **业务侧**：保持 **`AppSettingsLaunchStrategy.AUTO`**（默认），在关键路径对 `openAppSettings` 失败做 Toast/文档引导；**勿**把 60s 超时当成功路径。  
+- **测试矩阵**：发版前至少覆盖 **小米 / 华为或荣耀 / OPPO或vivo** 各一台，见 [demo/DEMO_MATRIX.md](demo/DEMO_MATRIX.md) 推荐手测。
 
 ## 引入
 

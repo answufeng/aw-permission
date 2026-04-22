@@ -37,3 +37,7 @@
 ./gradlew :aw-permission:lintRelease
 ./gradlew :demo:assembleRelease                 # 构建 Demo
 ```
+
+## 发版前补充检查（R8）
+
+隐藏 Fragment 与反射路径依赖规则；发版后在国产 ROM 抽测设置跳转。升级 AndroidX Activity/Fragment 时重跑 demo。
