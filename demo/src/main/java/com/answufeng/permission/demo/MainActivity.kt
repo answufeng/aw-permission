@@ -14,6 +14,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
 import androidx.lifecycle.lifecycleScope
@@ -59,6 +60,14 @@ class MainActivity : AppCompatActivity() {
         toolbar.setNavigationOnClickListener { openSettings() }
         toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
+                R.id.action_demo_playbook -> {
+                    MaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.demo_playbook_title)
+                        .setMessage(R.string.demo_playbook_message)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                    true
+                }
                 R.id.action_about -> {
                     showAbout()
                     true

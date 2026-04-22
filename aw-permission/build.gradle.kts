@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.ktlint)
 }
 
 android {
@@ -9,7 +10,6 @@ android {
 
     defaultConfig {
         minSdk = 24
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
 
@@ -22,13 +22,9 @@ android {
         jvmTarget = "17"
     }
 
-    testOptions {
-        unitTests.isIncludeAndroidResources = true
-    }
-
     buildTypes {
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -37,9 +33,14 @@ android {
     }
 
     lint {
-        abortOnError = false
+        abortOnError = true
         warningsAsErrors = false
     }
+}
+
+ktlint {
+    android.set(true)
+    ignoreFailures = false
 }
 
 dependencies {
@@ -51,15 +52,6 @@ dependencies {
     implementation(libs.fragment.ktx)
     implementation(libs.annotation)
     implementation(libs.lifecycle.runtime.ktx)
-
-    testImplementation(libs.junit)
-    testImplementation(libs.robolectric)
-    testImplementation(libs.androidx.test.core)
-    testImplementation(libs.coroutines.test)
-
-    androidTestImplementation(libs.androidx.test.core)
-    androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(libs.androidx.test.ext.junit)
 }
 
 apply(from = "${rootDir}/gradle/publish.gradle.kts")

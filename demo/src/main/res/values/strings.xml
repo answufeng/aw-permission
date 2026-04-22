@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">AwPermission Demo</string>
+    <string name="demo_playbook_title">演示清单</string>
+    <string name="demo_playbook_message">索引见 demo/DEMO_MATRIX.md。\n\n覆盖：批量 Chip、常用权限组、Rationale/DSL、设置跳转、特殊权限、Flow 观察。\n\n国产 ROM 差异见 README；永久拒绝务必引导用户进设置。</string>
 </resources>

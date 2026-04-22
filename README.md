@@ -21,10 +21,18 @@
 
 - **minSdk**: 24+
 - **compileSdk**: 35
+- **targetSdk（demo 验证）**: 35
 - **Kotlin**: 2.0+
 - **JVM Target**: 17
 - **Kotlin 协程**: 1.9+
 - **AndroidX**: Activity 1.9+, Fragment 1.8+
+
+## 工程品质与发版检查
+
+- **CI**：[`.github/workflows/ci.yml`](.github/workflows/ci.yml) — `assembleRelease`、`ktlintCheck`、`lintRelease`、`:demo:assembleRelease`。
+- **本地建议**：`./gradlew :aw-permission:assembleRelease :aw-permission:ktlintCheck :aw-permission:lintRelease :demo:assembleRelease`
+- **演示**：[demo/DEMO_MATRIX.md](demo/DEMO_MATRIX.md)；demo **「演示清单」** 菜单。
+- **上线前**：在目标 **minSdk～最新系统** 与至少一台国产 ROM 上跑通「拒绝 / 永久拒绝 / 设置返回」；依赖库内超时仅作异常兜底，勿当成功路径。
 
 ## 引入
 
@@ -66,6 +74,23 @@ lifecycleScope.launch {
     }
 }
 ```
+
+### 推荐写法与反模式
+
+| 推荐 | 反模式 |
+|------|--------|
+| 在 `lifecycleScope` / `viewLifecycleOwner.lifecycleScope` 中 **单次** `launch` 请求 | 在 `onResume` 里无防抖、无状态地**每次**触发请求，导致对话框重入 |
+| 需要连续请求时用 `AwPermission` 内置 **Mutex** 顺序执行（或业务层串行） | 多路并发同时弹系统对话框 |
+| 永久拒绝后引导 **`openAppSettings`**，并说明为何需要权限 | 假设 `shouldShowRationale` 在所有 ROM 上 100% 可靠 |
+| 依赖库内 **60s 超时**仅作 ROM 异常兜底 | 把超时当成功路径，不处理用户拒绝 |
+
+### 国产 ROM 已知限制（维护入口）
+
+厂商设置页 Intent、权限页路由会随系统升级变化；库内通过 **`PermissionDetector`** 与 `queries` 合并提高解析成功率，但无法保证全机型永久有效。若某机型跳转失败，请比对并维护 **`PermissionDetector`** 内启发式规则，并优先使用 **`AppSettingsLaunchStrategy.AUTO`**。
+
+## 演示应用
+
+`demo` 覆盖批量权限、Rationale、特殊权限与 Flow 观察；与 README 推荐写法对照见 [demo/DEMO_MATRIX.md](demo/DEMO_MATRIX.md)。
 
 ---
 
