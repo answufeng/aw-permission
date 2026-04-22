@@ -1,2 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Android 11+ 包可见性：显式查询各厂商安全中心包名，避免 resolveActivity 误判导致无法跳转权限页。
+      与 AwPermission / SpecialPermission 中使用的 ComponentName 保持一致。
+    -->
+    <queries>
+        <package android:name="com.huawei.systemmanager" />
+        <package android:name="com.miui.securitycenter" />
+        <package android:name="com.miui.powerkeeper" />
+        <package android:name="com.coloros.safecenter" />
+        <package android:name="com.oppo.safe" />
+        <package android:name="com.vivo.abe.uniui" />
+        <package android:name="com.vivo.abe" />
+        <package android:name="com.meizu.safe" />
+        <package android:name="com.samsung.android.lool" />
+        <package android:name="com.lenovo.securitycenter" />
+        <package android:name="com.asus.mobilemanager" />
+    </queries>
+</manifest>

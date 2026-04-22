@@ -87,6 +87,18 @@ class AwPermissionTest {
     }
 
     @Test
+    fun `AppSettingsLaunchStrategy values include AUTO OEM_FIRST STANDARD_FIRST`() {
+        assertEquals(
+            setOf(
+                AwPermission.AppSettingsLaunchStrategy.AUTO,
+                AwPermission.AppSettingsLaunchStrategy.OEM_FIRST,
+                AwPermission.AppSettingsLaunchStrategy.STANDARD_FIRST,
+            ),
+            AwPermission.AppSettingsLaunchStrategy.entries.toSet()
+        )
+    }
+
+    @Test
     fun `hasPermission extension delegates to AwPermission isGranted`() {
         Shadows.shadowOf(context).grantPermissions(Manifest.permission.CAMERA)
         assertTrue(context.hasPermission(Manifest.permission.CAMERA))

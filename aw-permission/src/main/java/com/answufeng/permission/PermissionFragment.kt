@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
@@ -78,9 +79,9 @@ internal class PermissionFragment : Fragment() {
                 cont.invokeOnCancellation { continuationRef.compareAndSet(cont, null) }
                 try {
                     permissionLauncher.launch(permissions)
-                } catch (e: IllegalStateException) {
+                } catch (e: Exception) {
                     continuationRef.getAndSet(null)
-                    cont.cancel(e)
+                    cont.cancel(CancellationException("Failed to launch permission request", e))
                 }
             }
         } ?: permissions.associateWith { false }

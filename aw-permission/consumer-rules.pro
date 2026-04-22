@@ -12,6 +12,12 @@
     public static *** requestWithRationale(...);
     public static *** openAppSettings(...);
     public static *** openAppSettingsAndWait(...);
+    public static *** isLikelyCustomRom(...);
+}
+
+-keep class com.answufeng.permission.AwPermission$AppSettingsLaunchStrategy {
+    public static *** values();
+    public static *** valueOf(java.lang.String);
 }
 
 -keep class com.answufeng.permission.AwPermission$LogLevel {

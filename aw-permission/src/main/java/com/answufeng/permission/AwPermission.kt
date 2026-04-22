@@ -1,13 +1,11 @@
 package com.answufeng.permission
 
-import android.app.AppOpsManager
+import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
-import android.os.Process
 import android.provider.Settings
 import androidx.annotation.CheckResult
 import androidx.core.content.ContextCompat
@@ -29,7 +27,8 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * ### 国产 ROM 兼容
  * - 通过 [PermissionDetector] 使用 AppOpsManager 增强永久拒绝检测
- * - [openAppSettings] 支持华为/小米等国产 ROM 的多重 Intent 回退
+ * - [openAppSettings] 在疑似定制 ROM 上默认 [AppSettingsLaunchStrategy.AUTO] 优先尝试厂商权限页，再回退应用详情
+ * - 库 Manifest 合并 [queries](https://developer.android.com/training/package-visibility) 以提高 Android 11+ 上解析厂商设置页的成功率
  * - 60 秒超时保护防止权限对话框异常关闭导致协程永久挂起
  *
  * ### 基本用法（在 Activity 中）
@@ -86,6 +85,8 @@ import java.util.concurrent.atomic.AtomicReference
  * ### 打开应用设置
  * ```kotlin
  * val success = AwPermission.openAppSettings(context)
+ * // 或显式指定策略
+ * AwPermission.openAppSettings(context, AwPermission.AppSettingsLaunchStrategy.OEM_FIRST)
  * ```
  */
 object AwPermission {
@@ -102,6 +103,24 @@ object AwPermission {
      */
     public enum class LogLevel {
         DEBUG, INFO, WARN, ERROR
+    }
+
+    /**
+     * 打开应用详情 / 权限相关设置时的 Intent 尝试顺序。
+     *
+     * 定制系统上 [OEM_FIRST] 往往更接近「权限列表」；接近 AOSP 的设备用 [STANDARD_FIRST] 更稳妥。
+     */
+    public enum class AppSettingsLaunchStrategy {
+        /** 先 [Settings.ACTION_APPLICATION_DETAILS_SETTINGS]，再尝试各厂商权限入口。 */
+        STANDARD_FIRST,
+
+        /** 先尝试各厂商权限管理页，最后回退到应用详情页。 */
+        OEM_FIRST,
+
+        /**
+         * 由 [isLikelyCustomRom] 决定：疑似定制 ROM 时为 [OEM_FIRST]，否则 [STANDARD_FIRST]。
+         */
+        AUTO,
     }
 
     private val loggerRef = AtomicReference<((level: LogLevel, tag: String, msg: String) -> Unit)?>(null)
@@ -130,6 +149,13 @@ object AwPermission {
     internal fun log(level: LogLevel, msg: String) {
         loggerRef.get()?.invoke(level, LOG_TAG, msg)
     }
+
+    /**
+     * 当前设备是否疑似常见定制 ROM（华为/小米/OPPO/vivo 等）。
+     *
+     * 用于默认设置跳转策略等；与 [PermissionDetector] 的增强检测使用同一套启发式规则。
+     */
+    public fun isLikelyCustomRom(): Boolean = PermissionDetector.isProblematicRom()
 
     /**
      * 检查单个权限是否已授权。
@@ -356,15 +382,26 @@ object AwPermission {
     }
 
     /**
-     * 打开当前应用的系统设置页。
+     * 打开当前应用的系统设置页（权限相关）。
      *
-     * 支持国产 ROM 多重回退：标准设置页 → 华为安全中心 → 小米安全中心 → 最终回退。
+     * 默认 [AppSettingsLaunchStrategy.AUTO]：在 [isLikelyCustomRom] 为 true 时优先尝试厂商权限管理页，
+     * 否则优先标准应用详情页；任一成功即返回。
      *
      * @param context 任意 [Context]
      * @return 设置页成功打开返回 `true`，无法打开返回 `false`
      */
-    fun openAppSettings(context: Context): Boolean {
-        val intents = buildAppSettingsIntents(context)
+    fun openAppSettings(context: Context): Boolean =
+        openAppSettings(context, AppSettingsLaunchStrategy.AUTO)
+
+    /**
+     * 打开当前应用的系统设置页，并指定 Intent 尝试顺序。
+     *
+     * @param context 任意 [Context]
+     * @param strategy 启动策略，参见 [AppSettingsLaunchStrategy]
+     * @return 设置页成功打开返回 `true`，无法打开返回 `false`
+     */
+    fun openAppSettings(context: Context, strategy: AppSettingsLaunchStrategy): Boolean {
+        val intents = buildAppSettingsIntents(context, strategy)
 
         for (intent in intents) {
             try {
@@ -378,11 +415,7 @@ object AwPermission {
         }
 
         return try {
-            val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", context.packageName, null)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(fallbackIntent)
+            context.startActivity(buildStandardAppDetailsIntent(context))
             true
         } catch (_: Exception) {
             false
@@ -405,9 +438,19 @@ object AwPermission {
     suspend fun openAppSettingsAndWait(
         activity: FragmentActivity,
         vararg permissions: String
+    ): PermissionResult =
+        openAppSettingsAndWait(activity, AppSettingsLaunchStrategy.AUTO, *permissions)
+
+    /**
+     * 打开应用设置页并等待返回，且指定与 [openAppSettings] 相同的启动策略。
+     */
+    suspend fun openAppSettingsAndWait(
+        activity: FragmentActivity,
+        strategy: AppSettingsLaunchStrategy,
+        vararg permissions: String
     ): PermissionResult {
         checkActivityState(activity)
-        openAppSettings(activity)
+        openAppSettings(activity, strategy)
         return waitForActivityResumedAndCheck(activity, permissions)
     }
 
@@ -423,9 +466,15 @@ object AwPermission {
     suspend fun openAppSettingsAndWait(
         fragment: Fragment,
         vararg permissions: String
-    ): PermissionResult {
-        return openAppSettingsAndWait(fragment.requireActivity(), *permissions)
-    }
+    ): PermissionResult =
+        openAppSettingsAndWait(fragment.requireActivity(), *permissions)
+
+    suspend fun openAppSettingsAndWait(
+        fragment: Fragment,
+        strategy: AppSettingsLaunchStrategy,
+        vararg permissions: String
+    ): PermissionResult =
+        openAppSettingsAndWait(fragment.requireActivity(), strategy, *permissions)
 
     private suspend fun waitForActivityResumedAndCheck(
         activity: FragmentActivity,
@@ -437,61 +486,105 @@ object AwPermission {
                     override fun onResume(owner: androidx.lifecycle.LifecycleOwner) {
                         activity.lifecycle.removeObserver(this)
                         if (cont.isActive) {
-                            val granted = mutableListOf<String>()
-                            val denied = mutableListOf<String>()
-                            val permanentlyDenied = mutableListOf<String>()
-                            for (permission in permissions) {
-                                if (isGranted(activity, permission)) {
-                                    granted.add(permission)
-                                } else {
-                                    val rationale = activity.shouldShowRequestPermissionRationale(permission)
-                                    if (rationale) {
-                                        denied.add(permission)
-                                    } else {
-                                        val isPermDenied = PermissionDetector.isPermanentlyDenied(
-                                            activity, permission,
-                                            wasRationaleBefore = false,
-                                            isRationaleAfter = false
-                                        )
-                                        if (isPermDenied) permanentlyDenied.add(permission) else denied.add(permission)
-                                    }
-                                }
-                            }
                             @Suppress("DEPRECATION")
-                            cont.resume(PermissionResult(granted = granted, denied = denied, permanentlyDenied = permanentlyDenied), onCancellation = { })
+                            cont.resume(
+                                classifyPermissionsAfterSettingsVisit(activity, permissions),
+                                onCancellation = { }
+                            )
                         }
                     }
                 }
                 activity.lifecycle.addObserver(observer)
                 cont.invokeOnCancellation { activity.lifecycle.removeObserver(observer) }
             }
-        } ?: run {
-            val granted = mutableListOf<String>()
-            val denied = mutableListOf<String>()
-            val permanentlyDenied = mutableListOf<String>()
-            for (permission in permissions) {
-                if (isGranted(activity, permission)) {
-                    granted.add(permission)
-                } else {
-                    denied.add(permission)
-                }
-            }
-            PermissionResult(granted = granted, denied = denied, permanentlyDenied = permanentlyDenied)
+        } ?: if (activity.isDestroyed || activity.isFinishing) {
+            val granted = permissions.filter { isGranted(activity.applicationContext, it) }
+            val rest = permissions.filterNot { it in granted }
+            PermissionResult(granted = granted, denied = rest, permanentlyDenied = emptyList())
+        } else {
+            classifyPermissionsAfterSettingsVisit(activity, permissions)
         }
     }
 
-    private fun buildAppSettingsIntents(context: Context): List<Intent> = buildList {
-        add(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+    /**
+     * 用户从设置返回后（或等待超时后）根据当前状态分类权限，与 onResume 路径一致，避免超时低估永久拒绝。
+     */
+    private fun classifyPermissionsAfterSettingsVisit(
+        activity: FragmentActivity,
+        permissions: Array<out String>
+    ): PermissionResult {
+        val granted = mutableListOf<String>()
+        val denied = mutableListOf<String>()
+        val permanentlyDenied = mutableListOf<String>()
+        for (permission in permissions) {
+            if (isGranted(activity, permission)) {
+                granted.add(permission)
+            } else {
+                val rationale = activity.shouldShowRequestPermissionRationale(permission)
+                if (rationale) {
+                    denied.add(permission)
+                } else {
+                    val isPermDenied = PermissionDetector.isPermanentlyDenied(
+                        activity, permission,
+                        wasRationaleBefore = false,
+                        isRationaleAfter = false
+                    )
+                    if (isPermDenied) permanentlyDenied.add(permission) else denied.add(permission)
+                }
+            }
+        }
+        return PermissionResult(granted = granted, denied = denied, permanentlyDenied = permanentlyDenied)
+    }
+
+    private fun resolveLaunchStrategy(strategy: AppSettingsLaunchStrategy): AppSettingsLaunchStrategy =
+        when (strategy) {
+            AppSettingsLaunchStrategy.AUTO ->
+                if (PermissionDetector.isProblematicRom()) {
+                    AppSettingsLaunchStrategy.OEM_FIRST
+                } else {
+                    AppSettingsLaunchStrategy.STANDARD_FIRST
+                }
+            AppSettingsLaunchStrategy.OEM_FIRST,
+            AppSettingsLaunchStrategy.STANDARD_FIRST -> strategy
+        }
+
+    private fun ensureNewTaskForNonActivity(context: Context, intent: Intent) {
+        if (context !is Activity) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+    }
+
+    private fun buildStandardAppDetailsIntent(context: Context): Intent =
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.fromParts("package", context.packageName, null)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
-        for (template in appSettingsIntentTemplates) {
-            add(Intent(template).apply {
+            ensureNewTaskForNonActivity(context, this)
+        }
+
+    private fun buildOemAppSettingsIntents(context: Context): List<Intent> =
+        appSettingsIntentTemplates.map { template ->
+            Intent(template).apply {
                 if (template.hasExtra("extra_pkgname")) {
                     putExtra("extra_pkgname", context.packageName)
                 }
-            })
+                ensureNewTaskForNonActivity(context, this)
+            }
         }
+
+    private fun intentDedupKey(intent: Intent): String {
+        val c = intent.component
+        return "${intent.action}|${intent.dataString}|${c?.packageName}|${c?.className}"
+    }
+
+    private fun buildAppSettingsIntents(context: Context, strategy: AppSettingsLaunchStrategy): List<Intent> {
+        val resolved = resolveLaunchStrategy(strategy)
+        val standard = buildStandardAppDetailsIntent(context)
+        val oem = buildOemAppSettingsIntents(context)
+        val merged = when (resolved) {
+            AppSettingsLaunchStrategy.OEM_FIRST -> oem + standard
+            AppSettingsLaunchStrategy.STANDARD_FIRST -> listOf(standard) + oem
+            AppSettingsLaunchStrategy.AUTO -> error("resolved strategy must not be AUTO")
+        }
+        return merged.distinctBy { intentDedupKey(it) }
     }
 
     private val appSettingsIntentTemplates: List<Intent> by lazy {
@@ -501,7 +594,6 @@ object AwPermission {
                     "com.huawei.systemmanager",
                     "com.huawei.systemmanager.permissionmanager.ui.MainActivity"
                 )
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
             add(Intent().apply {
                 component = ComponentName(
@@ -509,35 +601,30 @@ object AwPermission {
                     "com.miui.permcenter.permissions.PermissionsEditorActivity"
                 )
                 putExtra("extra_pkgname", "")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
             add(Intent().apply {
                 component = ComponentName(
                     "com.coloros.safecenter",
                     "com.coloros.safecenter.permission.PermissionTopActivity"
                 )
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
             add(Intent().apply {
                 component = ComponentName(
                     "com.oppo.safe",
                     "com.oppo.safe.permission.PermissionTopActivity"
                 )
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
             add(Intent().apply {
                 component = ComponentName(
                     "com.vivo.abe.uniui",
                     "com.vivo.abe.uniui.UriPermissionActivity"
                 )
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
             add(Intent().apply {
                 component = ComponentName(
                     "com.meizu.safe",
                     "com.meizu.safe.security.PermissionActivity"
                 )
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
         }
     }

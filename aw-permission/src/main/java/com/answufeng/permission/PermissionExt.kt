@@ -237,6 +237,16 @@ public suspend fun FragmentActivity.openAppSettingsAndWait(vararg permissions: S
 }
 
 /**
+ * 打开应用设置并等待返回（可指定与 [AwPermission.openAppSettings] 相同的启动策略）。
+ */
+public suspend fun FragmentActivity.openAppSettingsAndWait(
+    strategy: AwPermission.AppSettingsLaunchStrategy,
+    vararg permissions: String
+): PermissionResult {
+    return AwPermission.openAppSettingsAndWait(this, strategy, *permissions)
+}
+
+/**
  * 从 Fragment 打开应用设置页并等待返回后检查权限状态（suspend 扩展函数）。
  *
  * 委托给 [AwPermission.openAppSettingsAndWait]。
@@ -247,6 +257,13 @@ public suspend fun FragmentActivity.openAppSettingsAndWait(vararg permissions: S
  */
 public suspend fun Fragment.openAppSettingsAndWait(vararg permissions: String): PermissionResult {
     return AwPermission.openAppSettingsAndWait(this, *permissions)
+}
+
+public suspend fun Fragment.openAppSettingsAndWait(
+    strategy: AwPermission.AppSettingsLaunchStrategy,
+    vararg permissions: String
+): PermissionResult {
+    return AwPermission.openAppSettingsAndWait(this, strategy, *permissions)
 }
 
 /**

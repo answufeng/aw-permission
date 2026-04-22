@@ -146,6 +146,7 @@ internal object PermissionDetector {
         "miui", "emui", "harmony", "coloros", "funtouch",
         "flyme", "oneui", "smartisan", "nubia", "rog",
         "vivo", "oppo", "huawei", "xiaomi", "samsung",
-        "meizu", "lenovo", "zte", "asus"
+        "meizu", "lenovo", "zte", "asus",
+        "realme", "honor", "hihonor", "redmi", "oneplus",
     )
 }

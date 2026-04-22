@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand -->
+    <color name="ds_primary">#0369A1</color>
+    <color name="ds_secondary">#0EA5E9</color>
+    <color name="ds_cta">#22C55E</color>
+
+    <!-- Surfaces / text -->
+    <color name="ds_bg">#F0F9FF</color>
+    <color name="ds_surface">#FFFFFF</color>
+    <color name="ds_on_surface">#0B1220</color>
+    <color name="ds_muted">#475569</color>
+
+    <!-- Status -->
+    <color name="ds_success">#16A34A</color>
+    <color name="ds_warning">#F59E0B</color>
+    <color name="ds_danger">#EF4444</color>
+</resources>

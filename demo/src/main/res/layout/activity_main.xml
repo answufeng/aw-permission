@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:attr/colorBackground">
+    android:background="@drawable/bg_demo_gradient">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
@@ -15,10 +15,12 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="?android:attr/colorPrimary"
-            app:title="aw-permission 权限库"
-            app:titleTextColor="@android:color/white"
-            app:navigationIcon="@drawable/ic_security" />
+            android:background="@android:color/transparent"
+            app:title="AwPermission 权限中心"
+            app:titleTextColor="@color/ds_on_surface"
+            app:navigationIconTint="@color/ds_on_surface"
+            app:navigationIcon="@drawable/ic_security"
+            app:menu="@menu/menu_main" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -34,11 +36,65 @@
             android:padding="16dp">
 
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardOverview"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="#14000000">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/tvHeadline"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="一屏看清权限状态"
+                        android:textColor="@color/ds_on_surface"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvSubtitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:lineSpacingExtra="3dp"
+                        android:text="支持单项/批量请求、理由说明、跳转设置、特殊权限引导，并保留完整日志便于排查。"
+                        android:textColor="@color/ds_muted"
+                        android:textSize="14sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnRefreshAll"
+                        style="@style/Widget.MaterialComponents.Button"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="12dp"
+                        android:text="刷新所有状态"
+                        app:cornerRadius="12dp"
+                        app:icon="@drawable/ic_permission"
+                        app:iconPadding="10dp"
+                        app:iconTint="@android:color/white"
+                        app:backgroundTint="@color/ds_primary"
+                        android:textColor="@android:color/white" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="#14000000">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -50,7 +106,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="基本权限"
-                        android:textColor="?android:attr/colorPrimary"
+                        android:textColor="@color/ds_on_surface"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:drawablePadding="8dp"
@@ -61,32 +117,150 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="基础的权限请求功能，支持相机、定位、录音、存储等常用权限的协程请求"
-                        android:textColor="?android:attr/textColorSecondary"
+                        android:textColor="@color/ds_muted"
                         android:textSize="14sp"
                         android:layout_marginBottom="16dp"
                         android:lineSpacingExtra="4dp" />
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipGroupBasic"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="14dp"
+                        app:singleLine="false"
+                        app:chipSpacingHorizontal="8dp"
+                        app:chipSpacingVertical="8dp">
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipCamera"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checkable="true"
+                            android:text="相机" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipLocation"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checkable="true"
+                            android:text="定位" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipMicrophone"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checkable="true"
+                            android:text="录音" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipStorage"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checkable="true"
+                            android:text="存储/媒体" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipNotifications"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checkable="true"
+                            android:text="通知(13+)" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipContacts"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checkable="true"
+                            android:text="通讯录" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipCalendar"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checkable="true"
+                            android:text="日历" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipPhone"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checkable="true"
+                            android:text="电话" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipSensors"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checkable="true"
+                            android:text="传感器" />
+                    </com.google.android.material.chip.ChipGroup>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="10dp">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnRequestSelected"
+                            style="@style/Widget.MaterialComponents.Button"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="请求已选"
+                            android:textColor="@android:color/white"
+                            app:cornerRadius="12dp"
+                            app:backgroundTint="@color/ds_cta"
+                            android:layout_marginEnd="8dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnCheckSelected"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="检查已选"
+                            app:cornerRadius="12dp"
+                            app:strokeColor="@color/ds_primary"
+                            app:strokeWidth="1dp" />
+                    </LinearLayout>
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal">
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnCamera"
-                            style="@style/MaterialButton.Outlined"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"
                             android:text="相机权限"
-                            android:layout_marginEnd="8dp" />
+                            app:cornerRadius="12dp"
+                            android:layout_marginEnd="8dp"
+                            app:strokeColor="@color/ds_primary"
+                            app:strokeWidth="1dp" />
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnLocation"
-                            style="@style/MaterialButton.Outlined"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"
-                            android:text="定位权限" />
+                            android:text="定位权限"
+                            app:cornerRadius="12dp"
+                            app:strokeColor="@color/ds_primary"
+                            app:strokeWidth="1dp" />
 
                     </LinearLayout>
 
@@ -96,22 +270,28 @@
                         android:orientation="horizontal"
                         android:layout_marginTop="8dp">
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnStorage"
-                            style="@style/MaterialButton.Outlined"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"
                             android:text="存储/媒体"
-                            android:layout_marginEnd="8dp" />
+                            app:cornerRadius="12dp"
+                            android:layout_marginEnd="8dp"
+                            app:strokeColor="@color/ds_primary"
+                            app:strokeWidth="1dp" />
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnMultiple"
-                            style="@style/MaterialButton.Outlined"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"
-                            android:text="多个权限" />
+                            android:text="多个权限"
+                            app:cornerRadius="12dp"
+                            app:strokeColor="@color/ds_primary"
+                            app:strokeWidth="1dp" />
 
                     </LinearLayout>
 
@@ -122,8 +302,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="#14000000">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -135,7 +317,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="高级功能"
-                        android:textColor="?android:attr/colorPrimary"
+                        android:textColor="@color/ds_on_surface"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:drawablePadding="8dp"
@@ -146,7 +328,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="带说明的权限请求、DSL风格请求、权限状态检查、设置页面跳转等高级功能"
-                        android:textColor="?android:attr/textColorSecondary"
+                        android:textColor="@color/ds_muted"
                         android:textSize="14sp"
                         android:layout_marginBottom="16dp"
                         android:lineSpacingExtra="4dp" />
@@ -156,22 +338,28 @@
                         android:layout_height="wrap_content"
                         android:orientation="horizontal">
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnRationale"
-                            style="@style/MaterialButton.Outlined"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"
                             android:text="带说明请求"
-                            android:layout_marginEnd="8dp" />
+                            app:cornerRadius="12dp"
+                            android:layout_marginEnd="8dp"
+                            app:strokeColor="@color/ds_primary"
+                            app:strokeWidth="1dp" />
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnDsl"
-                            style="@style/MaterialButton.Outlined"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"
-                            android:text="DSL风格" />
+                            android:text="DSL风格"
+                            app:cornerRadius="12dp"
+                            app:strokeColor="@color/ds_primary"
+                            app:strokeWidth="1dp" />
 
                     </LinearLayout>
 
@@ -181,22 +369,28 @@
                         android:orientation="horizontal"
                         android:layout_marginTop="8dp">
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnCheck"
-                            style="@style/MaterialButton.Outlined"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"
                             android:text="权限检查"
-                            android:layout_marginEnd="8dp" />
+                            app:cornerRadius="12dp"
+                            android:layout_marginEnd="8dp"
+                            app:strokeColor="@color/ds_primary"
+                            app:strokeWidth="1dp" />
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnSettings"
-                            style="@style/MaterialButton.Outlined"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"
-                            android:text="设置页面" />
+                            android:text="设置页面"
+                            app:cornerRadius="12dp"
+                            app:strokeColor="@color/ds_primary"
+                            app:strokeWidth="1dp" />
 
                     </LinearLayout>
 
@@ -207,8 +401,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="#14000000">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -220,7 +416,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="特殊权限"
-                        android:textColor="?android:attr/colorPrimary"
+                        android:textColor="@color/ds_on_surface"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:drawablePadding="8dp"
@@ -231,7 +427,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="国产ROM特殊权限引导，支持状态检查和设置页跳转"
-                        android:textColor="?android:attr/textColorSecondary"
+                        android:textColor="@color/ds_muted"
                         android:textSize="14sp"
                         android:layout_marginBottom="16dp"
                         android:lineSpacingExtra="4dp" />
@@ -241,32 +437,41 @@
                         android:layout_height="wrap_content"
                         android:orientation="horizontal">
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnSpecialFloat"
-                            style="@style/MaterialButton.Outlined"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"
                             android:text="悬浮窗"
-                            android:layout_marginEnd="8dp" />
+                            app:cornerRadius="12dp"
+                            android:layout_marginEnd="8dp"
+                            app:strokeColor="@color/ds_primary"
+                            app:strokeWidth="1dp" />
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnSpecialBattery"
-                            style="@style/MaterialButton.Outlined"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"
-                            android:text="电池优化" />
+                            android:text="电池优化"
+                            app:cornerRadius="12dp"
+                            app:strokeColor="@color/ds_primary"
+                            app:strokeWidth="1dp" />
 
                     </LinearLayout>
 
-                    <Button
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnSpecialNotify"
-                        style="@style/MaterialButton.Outlined"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         android:layout_width="match_parent"
                         android:layout_height="48dp"
                         android:text="通知栏监听"
-                        android:layout_marginTop="8dp" />
+                        android:layout_marginTop="8dp"
+                        app:cornerRadius="12dp"
+                        app:strokeColor="@color/ds_primary"
+                        app:strokeWidth="1dp" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -274,8 +479,10 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="#14000000">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -287,7 +494,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="操作日志"
-                        android:textColor="?android:attr/colorPrimary"
+                        android:textColor="@color/ds_on_surface"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:drawablePadding="8dp"
@@ -295,31 +502,66 @@
                         android:layout_marginBottom="12dp" />
 
                     <ScrollView
+                        android:id="@+id/scrollLog"
                         android:layout_width="match_parent"
                         android:layout_height="300dp"
-                        android:background="?android:attr/colorBackground"
-                        android:padding="12dp">
+                        android:background="@color/ds_surface"
+                        android:padding="12dp"
+                        android:scrollbars="vertical">
 
                         <TextView
                             android:id="@+id/tvLog"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:text="操作日志将显示在这里...\n点击上方按钮开始测试权限功能"
-                            android:textColor="?android:attr/textColorPrimary"
+                            android:textColor="@color/ds_on_surface"
                             android:textSize="13sp"
                             android:fontFamily="monospace"
                             android:lineSpacingExtra="4dp" />
 
                     </ScrollView>
 
-                    <Button
-                        android:id="@+id/btnClearLog"
-                        style="@style/MaterialButton.Text"
-                        android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:layout_gravity="end"
-                        android:text="清除日志"
-                        android:layout_marginTop="12dp" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnCopyLog"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="复制"
+                            app:cornerRadius="12dp"
+                            app:strokeColor="@color/ds_primary"
+                            app:strokeWidth="1dp"
+                            android:layout_marginEnd="8dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnShareLog"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="分享"
+                            app:cornerRadius="12dp"
+                            app:strokeColor="@color/ds_primary"
+                            app:strokeWidth="1dp"
+                            android:layout_marginEnd="8dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnClearLog"
+                            style="@style/Widget.MaterialComponents.Button"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:text="清除"
+                            android:textColor="@android:color/white"
+                            app:cornerRadius="12dp"
+                            app:backgroundTint="@color/ds_primary" />
+                    </LinearLayout>
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

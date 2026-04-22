@@ -1,5 +1,6 @@
 package com.answufeng.permission
 
+import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -13,6 +14,9 @@ import android.provider.Settings
  *
  * 国产 ROM 有很多非标准权限需要引导用户手动开启，这些权限无法通过标准
  * 运行时权限请求获得，必须跳转到系统设置页面由用户手动操作。
+ *
+ * 与 [AwPermission.openAppSettings] 不同：本类面向「自启动、悬浮窗、电池白名单」等厂商页面；
+ * 运行时危险权限请使用 [AwPermission]。
  *
  * ### 支持的特殊权限
  * - [SpecialPermission.AUTO_START]：自启动权限
@@ -108,7 +112,12 @@ public object SpecialPermission {
     private fun checkNotificationListenerPermission(context: Context): Boolean {
         val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners") ?: return false
         val packageName = context.packageName
-        return flat.split(":").any { it.contains(packageName) }
+        return flat.split(':').any { component ->
+            val trimmed = component.trim()
+            if (trimmed.isEmpty()) return@any false
+            val pkg = trimmed.substringBefore('/')
+            pkg == packageName
+        }
     }
 
     private fun checkIgnoreBatteryOptimization(context: Context): Boolean {
@@ -149,9 +158,14 @@ public object SpecialPermission {
     public fun openSettings(context: Context, permissionType: PermissionType): Boolean {
         val intents = buildIntents(context, permissionType)
         for (intent in intents) {
+            val launch = Intent(intent).apply {
+                if (context !is Activity) {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            }
             try {
-                if (intent.resolveActivity(context.packageManager) != null) {
-                    context.startActivity(intent)
+                if (launch.resolveActivity(context.packageManager) != null) {
+                    context.startActivity(launch)
                     return true
                 }
             } catch (_: Exception) {
@@ -180,84 +194,71 @@ public object SpecialPermission {
                 "com.miui.securitycenter",
                 "com.miui.permcenter.autostart.AutoStartManagementActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.huawei.systemmanager",
                 "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.huawei.systemmanager",
                 "com.huawei.systemmanager.optimize.process.ProtectActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.coloros.safecenter",
                 "com.coloros.safecenter.permission.startup.StartupAppListActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.oppo.safe",
                 "com.oppo.safe.permission.startup.StartupAppListActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.vivo.abe.uniui",
                 "com.vivo.abe.uniui.BgStartUpManagerActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.vivo.abe",
                 "com.vivo.abe.BgStartUpManagerActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.meizu.safe",
                 "com.meizu.safe.security.SHOW_APPSEC"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.samsung.android.lool",
                 "com.samsung.android.sm.ui.battery.BatteryActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.lenovo.securitycenter",
                 "com.lenovo.securitycenter.bootpermission.BootPermissionActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.asus.mobilemanager",
                 "com.asus.mobilemanager.MainActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
     }
 
     private fun MutableList<Intent>.addNotificationListenerIntents() {
-        add(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS").apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
+        add(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
     }
 
     private fun MutableList<Intent>.addFloatWindowIntents(context: Context) {
@@ -266,7 +267,6 @@ public object SpecialPermission {
                 "com.huawei.systemmanager",
                 "com.huawei.systemmanager.addviewmonitor.AddViewMonitorActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
@@ -274,26 +274,22 @@ public object SpecialPermission {
                 "com.miui.permcenter.permissions.PermissionsEditorActivity"
             )
             putExtra("extra_pkgname", context.packageName)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.coloros.safecenter",
                 "com.coloros.safecenter.permission.FloatWindowActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.vivo.abe.uniui",
                 "com.vivo.abe.uniui.FloatWindowActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             add(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
                 data = Uri.fromParts("package", context.packageName, null)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
         }
     }
@@ -305,21 +301,18 @@ public object SpecialPermission {
                 "com.miui.permcenter.permissions.PermissionsEditorActivity"
             )
             putExtra("extra_pkgname", context.packageName)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.coloros.safecenter",
                 "com.coloros.safecenter.permission.BackgroundPopupActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.vivo.abe.uniui",
                 "com.vivo.abe.uniui.BackgroundPopupActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
     }
 
@@ -329,7 +322,6 @@ public object SpecialPermission {
                 "com.huawei.systemmanager",
                 "com.huawei.systemmanager.power.ui.HwPowerManagerActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
@@ -338,21 +330,18 @@ public object SpecialPermission {
             )
             putExtra("package_name", context.packageName)
             putExtra("package_label", getAppName(context))
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.samsung.android.lool",
                 "com.samsung.android.sm.ui.battery.BatteryActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         add(Intent().apply {
             component = ComponentName(
                 "com.asus.mobilemanager",
                 "com.asus.mobilemanager.powersaver.PowerSaverActivity"
             )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
     }
 
@@ -360,19 +349,15 @@ public object SpecialPermission {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             add(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                 data = Uri.fromParts("package", context.packageName, null)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
         }
-        add(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
+        add(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
     }
 
     private fun MutableList<Intent>.addWriteSettingsIntents(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             add(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
                 data = Uri.fromParts("package", context.packageName, null)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
         }
     }
@@ -381,7 +366,6 @@ public object SpecialPermission {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             add(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
                 data = Uri.fromParts("package", context.packageName, null)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
         }
     }
