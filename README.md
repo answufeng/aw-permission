@@ -2,6 +2,8 @@
 
 [![](https://jitpack.io/v/answufeng/aw-permission.svg)](https://jitpack.io/#answufeng/aw-permission)
 
+> **相关仓库**：GitHub [answufeng](https://github.com/answufeng) 组织内另有多个独立维护的 `aw-*` 基础库（架构、存储、网络、图片、日志、启动、UI、工具等），与本库相同面向传统 View/XML，工程基线多为 minSdk 24 与 JDK 17。
+
 基于协程 + 隐藏 Fragment 构建的 Android 运行时权限库。无需重写 `onRequestPermissionsResult`。
 
 ## 文档导读
