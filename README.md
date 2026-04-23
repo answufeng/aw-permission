@@ -2,6 +2,8 @@
 
 [![JitPack](https://jitpack.io/v/answufeng/aw-permission.svg)](https://jitpack.io/#answufeng/aw-permission)
 
+**当前发布版本：`1.0.1`**
+
 > 同属 [answufeng](https://github.com/answufeng) 的 `aw-*` 基础库（架构、网络、存储等）之一：面向 **传统 View/XML**（非 Compose），基线常见为 **minSdk 24**、**JDK 17**。
 
 **简介**：用 **Kotlin 协程** + 无界面 **Fragment** 完成运行时危险权限请求，**无需**重写 `onRequestPermissionsResult`；与 ROM 设置页、永久拒绝、理由说明等能力一并文档化在下方。
@@ -354,4 +356,4 @@ lifecycleScope.launch {
 
 Apache License 2.0，见 [LICENSE](LICENSE)。
 
-*文档更新：2026-04-23*
+*当前库版本 `1.0.1` · 文档更新：2026-04-23*
