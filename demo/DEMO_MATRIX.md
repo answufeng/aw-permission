@@ -4,8 +4,8 @@
 |------|------|
 | Chip 多选 + 请求所选 | 批量权限 |
 | 相机 / 定位 / 存储 / 多权限 | 常用组 |
-| Rationale / DSL | `requestWithRationale`、`buildPermissionRequest` |
-| 检查 / 设置 | 状态与跳转 |
+| Rationale / DSL | `requestWithRationale`（**Chip** 选 OnDenied / OnShouldShow）、`buildPermissionRequest` |
+| 检查 / 设置 | 状态与跳转；`openAppSettingsAndWait` 的 **AUTO / OEM_FIRST / STANDARD_FIRST**（Chip） |
 | 特殊权限 | 悬浮窗、电池、通知（依系统版本） |
 | Flow | `observePermissions` 日志 |
 

@@ -20,8 +20,8 @@ import java.util.concurrent.atomic.AtomicReference
  * 基于协程 + 隐藏 Fragment 构建的 Android 运行时权限请求工具。
  *
  * ### 并发安全
- * - 所有权限请求（包括 rationale 展示）通过单个 [Mutex] 进行序列化
- * - 同一时刻只有一个请求流程处于活跃状态，不会同时出现多个 rationale 对话框
+ * - 所有权限请求（含 rationale 展示）与 [openAppSettingsAndWait] 通过单个 [Mutex] 序列化
+ * - 同一时刻只有一个「请求/设置页等待」流程处于活跃状态，不会与另一路并发交错
  * - 每次请求创建独立的 [PermissionFragment] 实例，请求完成后自动移除
  * - 若 Activity 被销毁（如配置变更），挂起的协程会自动取消
  *
@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference
  * - 通过 [PermissionDetector] 使用 AppOpsManager 增强永久拒绝检测
  * - [openAppSettings] 在疑似定制 ROM 上默认 [AppSettingsLaunchStrategy.AUTO] 优先尝试厂商权限页，再回退应用详情
  * - 库 Manifest 合并 [queries](https://developer.android.com/training/package-visibility) 以提高 Android 11+ 上解析厂商设置页的成功率
- * - 60 秒超时保护防止权限对话框异常关闭导致协程永久挂起
+ * - 权限系统对话框 60 秒超时（见 [PermissionFragment]），[openAppSettingsAndWait] 等待返回最多 120 秒
  *
  * ### 基本用法（在 Activity 中）
  * ```kotlin
@@ -224,10 +224,8 @@ object AwPermission {
     @CheckResult
     suspend fun request(activity: FragmentActivity, vararg permissions: String): PermissionResult =
         mutex.withLock {
-            require(permissions.isNotEmpty()) { "permissions must not be empty" }
-            require(permissions.all { it.isNotBlank() }) { "permission names must not be blank" }
             checkActivityState(activity)
-            val deduplicated = permissions.distinct().toTypedArray()
+            val deduplicated = normalizePermissionArgs(permissions)
             requestInternal(activity, deduplicated)
         }
 
@@ -321,11 +319,8 @@ object AwPermission {
         strategy: RationaleStrategy = RationaleStrategy.OnShouldShow,
         rationale: suspend (permissions: List<String>) -> Boolean
     ): PermissionResult? = mutex.withLock {
-        require(permissions.isNotEmpty()) { "permissions must not be empty" }
-        require(permissions.all { it.isNotBlank() }) { "permission names must not be blank" }
         checkActivityState(activity)
-
-        val deduplicated = permissions.distinct().toTypedArray()
+        val deduplicated = normalizePermissionArgs(permissions)
 
         val needRationale = when (strategy) {
             RationaleStrategy.OnShouldShow -> deduplicated.filter {
@@ -433,6 +428,7 @@ object AwPermission {
      * @param activity [FragmentActivity]
      * @param permissions 要在返回后检查的权限
      * @return 用户从设置页返回后的 [PermissionResult]
+     * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
      * @throws IllegalStateException 若 Activity 正在结束或已销毁
      */
     suspend fun openAppSettingsAndWait(
@@ -443,15 +439,22 @@ object AwPermission {
 
     /**
      * 打开应用设置页并等待返回，且指定与 [openAppSettings] 相同的启动策略。
+     *
+     * 与 [request] 共用 [Mutex]；在持有锁期间会挂起直至下一次 [onResume] 或等待超时，期间其他请求会排队。
+     * 若 [openAppSettings] 无法打开任何页面，仍可能因其它原因触发 [onResume]，请结合返回值与权限状态判断。
+     *
+     * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
+     * @throws IllegalStateException 若 Activity 正在结束或已销毁
      */
     suspend fun openAppSettingsAndWait(
         activity: FragmentActivity,
         strategy: AppSettingsLaunchStrategy,
         vararg permissions: String
-    ): PermissionResult {
+    ): PermissionResult = mutex.withLock {
         checkActivityState(activity)
+        val deduplicated = normalizePermissionArgs(permissions)
         openAppSettings(activity, strategy)
-        return waitForActivityResumedAndCheck(activity, permissions)
+        waitForActivityResumedAndCheck(activity, deduplicated)
     }
 
     /**
@@ -462,6 +465,8 @@ object AwPermission {
      * @param fragment [Fragment]
      * @param permissions 要在返回后检查的权限
      * @return 用户从设置页返回后的 [PermissionResult]
+     * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
+     * @throws IllegalStateException 若宿主 Activity 正在结束或已销毁
      */
     suspend fun openAppSettingsAndWait(
         fragment: Fragment,
@@ -469,6 +474,16 @@ object AwPermission {
     ): PermissionResult =
         openAppSettingsAndWait(fragment.requireActivity(), *permissions)
 
+    /**
+     * 从 Fragment 打开应用设置页并等待返回，且可指定与 [openAppSettings] 相同的启动策略。
+     *
+     * @param fragment [Fragment]
+     * @param strategy 启动策略
+     * @param permissions 要在返回后检查的权限
+     * @return 用户从设置页返回后的 [PermissionResult]
+     * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
+     * @throws IllegalStateException 若宿主 Activity 正在结束或已销毁
+     */
     suspend fun openAppSettingsAndWait(
         fragment: Fragment,
         strategy: AppSettingsLaunchStrategy,
@@ -687,5 +702,11 @@ object AwPermission {
     private fun checkActivityState(activity: FragmentActivity) {
         check(!activity.isFinishing) { "Activity is finishing, cannot request permissions" }
         check(!activity.isDestroyed) { "Activity is destroyed, cannot request permissions" }
+    }
+
+    private fun normalizePermissionArgs(permissions: Array<out String>): Array<String> {
+        require(permissions.isNotEmpty()) { "permissions must not be empty" }
+        require(permissions.all { it.isNotBlank() }) { "permission names must not be blank" }
+        return permissions.distinct().toTypedArray()
     }
 }

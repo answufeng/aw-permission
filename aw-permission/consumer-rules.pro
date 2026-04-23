@@ -1,5 +1,8 @@
 # aw-permission consumer ProGuard rules
 # 宿主应用混淆时需要保留的公共 API
+#
+# 若宿主仅为 Kotlin 且可接受反射式 getter 重命名，可在本文件基础上收紧部分 -keep
+# 并做一次 release 回归；默认保留略宽以利 Java 互操作与 R8 保守优化。
 
 # Main API
 -keep class com.answufeng.permission.AwPermission {

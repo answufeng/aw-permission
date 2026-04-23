@@ -231,6 +231,8 @@ public fun FragmentActivity.observePermissions(vararg permissions: String): Flow
  * @receiver [FragmentActivity]
  * @param permissions 要在返回后检查的权限
  * @return 用户从设置页返回后的 [PermissionResult]
+ * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
+ * @throws IllegalStateException 若 Activity 正在结束或已销毁
  */
 public suspend fun FragmentActivity.openAppSettingsAndWait(vararg permissions: String): PermissionResult {
     return AwPermission.openAppSettingsAndWait(this, *permissions)
@@ -238,6 +240,13 @@ public suspend fun FragmentActivity.openAppSettingsAndWait(vararg permissions: S
 
 /**
  * 打开应用设置并等待返回（可指定与 [AwPermission.openAppSettings] 相同的启动策略）。
+ *
+ * @receiver [FragmentActivity]
+ * @param strategy 与 [AwPermission.openAppSettings] 相同的启动策略
+ * @param permissions 要在返回后检查的权限
+ * @return 用户从设置页返回后的 [PermissionResult]
+ * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
+ * @throws IllegalStateException 若 Activity 正在结束或已销毁
  */
 public suspend fun FragmentActivity.openAppSettingsAndWait(
     strategy: AwPermission.AppSettingsLaunchStrategy,
@@ -254,11 +263,23 @@ public suspend fun FragmentActivity.openAppSettingsAndWait(
  * @receiver [Fragment]
  * @param permissions 要在返回后检查的权限
  * @return 用户从设置页返回后的 [PermissionResult]
+ * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
+ * @throws IllegalStateException 若宿主 Activity 正在结束或已销毁
  */
 public suspend fun Fragment.openAppSettingsAndWait(vararg permissions: String): PermissionResult {
     return AwPermission.openAppSettingsAndWait(this, *permissions)
 }
 
+/**
+ * 从 Fragment 打开应用设置并等待返回（可指定启动策略）。
+ *
+ * @receiver [Fragment]
+ * @param strategy 与 [AwPermission.openAppSettings] 相同的启动策略
+ * @param permissions 要在返回后检查的权限
+ * @return 用户从设置页返回后的 [PermissionResult]
+ * @throws IllegalArgumentException 若 [permissions] 为空或包含空白字符串
+ * @throws IllegalStateException 若宿主 Activity 正在结束或已销毁
+ */
 public suspend fun Fragment.openAppSettingsAndWait(
     strategy: AwPermission.AppSettingsLaunchStrategy,
     vararg permissions: String

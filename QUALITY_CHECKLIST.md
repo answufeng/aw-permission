@@ -9,7 +9,7 @@ library 的一致性檢查。
 
 ## 2. 架構與技術棧
 - 保持每個庫既有依賴策略（如 Hilt/Room/MMKV），不強制改棧。
-- README 與實際程式碼一致（初始化方式、入口 API、必要依賴）。
+- README 與實際程式碼一致（初始化方式、入口 API、必要依賴、並發/互斥敘述與 `openAppSettingsAndWait` 行為）。
 
 ## 3. KDoc 最低門檻
 - 所有 `public class/object/interface` 需有用途說明。

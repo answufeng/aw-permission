@@ -91,9 +91,13 @@ public class PermissionRequest internal constructor(
             this.strategy = strategy
         }
 
+        /**
+         * @throws IllegalArgumentException 与 [AwPermission.request] 对权限入参的约束相同（非空、非空白、去重后构建）
+         */
         internal fun build(): PermissionRequest {
-            require(permissions.isNotEmpty()) { "At least one permission is required" }
-            return PermissionRequest(permissions.toList(), rationale, strategy)
+            require(permissions.isNotEmpty()) { "permissions must not be empty" }
+            require(permissions.all { it.isNotBlank() }) { "permission names must not be blank" }
+            return PermissionRequest(permissions.distinct(), rationale, strategy)
         }
     }
 }
@@ -118,8 +122,14 @@ public suspend fun FragmentActivity.buildPermissionRequest(
     block: PermissionRequest.Builder.() -> Unit
 ): PermissionResult? {
     val request = PermissionRequest.Builder().apply(block).build()
-    return if (request.rationale != null) {
-        AwPermission.requestWithRationale(this, *request.permissions.toTypedArray(), strategy = request.strategy, rationale = request.rationale!!)
+    val r = request.rationale
+    return if (r != null) {
+        AwPermission.requestWithRationale(
+            this,
+            *request.permissions.toTypedArray(),
+            strategy = request.strategy,
+            rationale = r
+        )
     } else {
         AwPermission.request(this, *request.permissions.toTypedArray())
     }
@@ -136,8 +146,14 @@ public suspend fun Fragment.buildPermissionRequest(
     block: PermissionRequest.Builder.() -> Unit
 ): PermissionResult? {
     val request = PermissionRequest.Builder().apply(block).build()
-    return if (request.rationale != null) {
-        AwPermission.requestWithRationale(this, *request.permissions.toTypedArray(), strategy = request.strategy, rationale = request.rationale!!)
+    val r = request.rationale
+    return if (r != null) {
+        AwPermission.requestWithRationale(
+            this,
+            *request.permissions.toTypedArray(),
+            strategy = request.strategy,
+            rationale = r
+        )
     } else {
         AwPermission.request(this, *request.permissions.toTypedArray())
     }

@@ -17,6 +17,7 @@ import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
 import androidx.lifecycle.lifecycleScope
 import com.answufeng.permission.AwPermission
 import com.answufeng.permission.PermissionGroups
@@ -48,6 +49,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var chipCalendar: Chip
     private lateinit var chipPhone: Chip
     private lateinit var chipSensors: Chip
+
+    private lateinit var chipGroupRationaleStrategy: ChipGroup
+
+    private lateinit var chipGroupSettingsStrategy: ChipGroup
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,6 +94,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         bindChips()
+        chipGroupRationaleStrategy = findViewById(R.id.chipGroupRationaleStrategy)
+        chipGroupSettingsStrategy = findViewById(R.id.chipGroupSettingsStrategy)
 
         findViewById<MaterialButton>(R.id.btnRefreshAll).setOnClickListener { refreshAllStatus() }
 
@@ -270,10 +277,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestWithRationale() {
         lifecycleScope.launch {
-            log("开始请求带说明的权限（OnDenied 策略）...")
+            val strategy = when (chipGroupRationaleStrategy.checkedChipId) {
+                R.id.chipRationaleOnShouldShow -> RationaleStrategy.OnShouldShow
+                else -> RationaleStrategy.OnDenied
+            }
+            log("开始请求带说明的权限（策略=$strategy）...")
             val result = requestRuntimePermissionsWithRationale(
                 Manifest.permission.CAMERA,
-                strategy = RationaleStrategy.OnDenied
+                strategy = strategy
             ) { permissions ->
                 val descriptions = permissions.map {
                     val info = PermissionInfo.getInfo(it)
@@ -333,10 +344,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun selectedAppSettingsStrategy(): AwPermission.AppSettingsLaunchStrategy {
+        return when (chipGroupSettingsStrategy.checkedChipId) {
+            R.id.chipSettingsOemFirst -> AwPermission.AppSettingsLaunchStrategy.OEM_FIRST
+            R.id.chipSettingsStandardFirst -> AwPermission.AppSettingsLaunchStrategy.STANDARD_FIRST
+            else -> AwPermission.AppSettingsLaunchStrategy.AUTO
+        }
+    }
+
     private fun openSettings() {
         lifecycleScope.launch {
-            log("打开设置页面并等待返回...")
-            val result = openAppSettingsAndWait(Manifest.permission.CAMERA)
+            val strategy = selectedAppSettingsStrategy()
+            log("打开设置页面并等待返回（AppSettingsLaunchStrategy=$strategy）...")
+            val result = openAppSettingsAndWait(strategy, Manifest.permission.CAMERA)
             log("返回后权限状态: 已授予=${result.granted}, 已拒绝=${result.denied}, 永久拒绝=${result.permanentlyDenied}")
             if (result.isGranted(Manifest.permission.CAMERA)) {
                 log("用户已在设置中授予相机权限！")
@@ -412,7 +432,7 @@ class MainActivity : AppCompatActivity() {
             appendLine("compileSdk=35, minSdk=24")
             appendLine("支持：协程请求、Rationale、DSL、设置页等待、特殊权限引导")
             appendLine()
-            appendLine("提示：可通过 Chip 选择权限后批量请求/检查")
+            appendLine("Chip：Rationale 策略、应用设置页启动策略；基本权限区可多选批量请求")
         }
         AlertDialog.Builder(this)
             .setTitle("关于")
