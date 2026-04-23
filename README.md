@@ -31,7 +31,7 @@
 
 ```kotlin
 dependencies {
-    implementation("com.github.answufeng:aw-permission:1.0.0")
+    implementation("com.github.answufeng:aw-permission:1.0.1")
 }
 ```
 

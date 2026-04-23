@@ -9,7 +9,7 @@ extensions.configure<org.gradle.api.publish.PublishingExtension> {
 
             groupId = "com.github.answufeng"
             artifactId = "aw-permission"
-            version = property("VERSION_NAME")?.toString() ?: "1.0.0"
+            version = property("VERSION_NAME")?.toString() ?: "1.0.1"
 
             pom {
                 name.set("aw-permission")
