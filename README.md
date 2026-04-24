@@ -2,21 +2,65 @@
 
 [![JitPack](https://jitpack.io/v/answufeng/aw-permission.svg)](https://jitpack.io/#answufeng/aw-permission)
 
-**当前发布版本：`1.0.1`**
+基于 **Kotlin 协程** + 无界面 **Fragment** 的 Android 运行时危险权限库：  
+用 `suspend` 一次性拿到结果，**无需**重写 `onRequestPermissionsResult`，并提供 Rationale、设置页引导/等待、权限组与国产 ROM 增强判断等能力。
+
+**当前发布版本：`1.0.1`**（版本号与 Git Tag/JitPack 一致）
 
 > 同属 [answufeng](https://github.com/answufeng) 的 `aw-*` 基础库（架构、网络、存储等）之一：面向 **传统 View/XML**（非 Compose），基线常见为 **minSdk 24**、**JDK 17**。
 
-**简介**：用 **Kotlin 协程** + 无界面 **Fragment** 完成运行时危险权限请求，**无需**重写 `onRequestPermissionsResult`；与 ROM 设置页、永久拒绝、理由说明等能力一并文档化在下方。
+---
+
+## 5 分钟上手（最小接入）
+
+### 1) 添加依赖（JitPack）
+
+```kotlin
+// settings.gradle.kts
+dependencyResolutionManagement {
+    repositories {
+        maven { url = uri("https://jitpack.io") }
+        google()
+        mavenCentral()
+    }
+}
+
+// app/build.gradle.kts
+dependencies {
+    implementation("com.github.answufeng:aw-permission:1.0.1")
+}
+```
+
+### 2) 发起请求（协程）
+
+```kotlin
+lifecycleScope.launch {
+    val result = AwPermission.request(this@MainActivity, Manifest.permission.CAMERA)
+    when {
+        result.isAllGranted -> openCamera()
+        result.hasPermanentlyDenied -> AwPermission.openAppSettings(this@MainActivity)
+        else -> showToast("未授权")
+    }
+}
+```
+
+### 3) 最容易踩的坑（先看这几条就够用）
+
+| 该做 | 别做 |
+|------|------|
+| 在 `lifecycleScope` / `viewLifecycleOwner.lifecycleScope` 里**单次** `launch` 请求 | 在 `onResume` 里无状态反复请求导致循环弹框 |
+| 多段流程依赖库内 **Mutex** 串行（或业务自行串行） | 多路并发同时弹系统权限对话框 |
+| 永久拒绝后先解释原因，再 `openAppSettings` / `openAppSettingsAndWait` | 以为所有 ROM 上 `shouldShowRationale` 都可靠 |
+| 60s（弹窗）/120s（设置页等待）只作兜底 | 把超时当成成功路径 |
 
 ---
 
-## 目录
+## 目录（按常见需求跳转）
 
 | 想做什么 | 去哪里 |
 |----------|--------|
-| 5 分钟接进工程 | [快速开始](#快速开始) |
-| 能干什么 / 系统版本 | [特性与环境要求](#特性与环境要求) |
-| 多权限、Rationale、DSL、Flow 等 | [使用示例](#使用示例) |
+| 最快跑通依赖与第一次请求 | [5 分钟上手（最小接入）](#5-分钟上手最小接入) · [环境要求](#环境要求) |
+| 多权限、Rationale、DSL、Flow | [使用示例](#使用示例) |
 | 推荐流程、线程约束 | [最佳实践与线程](#最佳实践与线程) |
 | 并发、ROM、机制说明 | [工作原理](#工作原理) |
 | 查方法表、权限组表 | [API 与附录](#api-与附录) |
@@ -25,42 +69,7 @@
 
 ---
 
-## 快速开始
-
-### 1. 添加依赖
-
-在 `settings.gradle.kts` 中启用 JitPack，在 `app/build.gradle.kts` 中：
-
-```kotlin
-dependencies {
-    implementation("com.github.answufeng:aw-permission:1.0.1")
-}
-```
-
-### 2. 请求并处理
-
-```kotlin
-lifecycleScope.launch {
-    val result = AwPermission.request(this@MainActivity, Manifest.permission.CAMERA)
-    when {
-        result.isAllGranted -> openCamera()
-        result.hasPermanentlyDenied -> AwPermission.openAppSettings(this@MainActivity)
-    }
-}
-```
-
-### 3. 建议与反模式
-
-| 建议 | 避免 |
-|------|------|
-| 在 `lifecycleScope` / `viewLifecycleOwner.lifecycleScope` 里**单次** `launch` 请求 | 在 `onResume` 里无状态反复弹框 |
-| 多段流程依赖库内 **Mutex** 或业务自行串行 | 多路并发同时出系统权限对话框 |
-| 永久拒绝后说明原因再 **`openAppSettings` / `openAppSettingsAndWait`** | 以为所有 ROM 上 `shouldShowRationale` 都可靠 |
-| 把**权限弹窗 60s、设置页等待 120s** 仅作异常兜底 | 把超时时序当成功路径 |
-
----
-
-## 特性与环境要求
+## 环境要求
 
 | 项 | 版本或说明 |
 |----|------------|
