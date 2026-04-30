@@ -8,6 +8,13 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
 
 /**
  * 国产 ROM 特殊权限引导工具。
@@ -37,6 +44,8 @@ import android.provider.Settings
  * ```
  */
 public object SpecialPermission {
+
+    private const val SETTINGS_WAIT_TIMEOUT_MS = 30_000L
 
     /**
      * 特殊权限类型。
@@ -173,6 +182,42 @@ public object SpecialPermission {
             }
         }
         return false
+    }
+
+    public suspend fun openSettingsAndWait(
+        activity: FragmentActivity,
+        permissionType: PermissionType
+    ): Boolean {
+        openSettings(activity, permissionType)
+        return waitForActivityResumedAndCheck(activity, permissionType)
+    }
+
+    public suspend fun openSettingsAndWait(
+        fragment: Fragment,
+        permissionType: PermissionType
+    ): Boolean {
+        return openSettingsAndWait(fragment.requireActivity(), permissionType)
+    }
+
+    private suspend fun waitForActivityResumedAndCheck(
+        activity: FragmentActivity,
+        permissionType: PermissionType
+    ): Boolean {
+        return withTimeoutOrNull(SETTINGS_WAIT_TIMEOUT_MS) {
+            suspendCancellableCoroutine { cont ->
+                val observer = object : DefaultLifecycleObserver {
+                    override fun onResume(owner: LifecycleOwner) {
+                        activity.lifecycle.removeObserver(this)
+                        if (cont.isActive) {
+                            @Suppress("DEPRECATION")
+                            cont.resume(isGranted(activity.applicationContext, permissionType), onCancellation = { })
+                        }
+                    }
+                }
+                activity.lifecycle.addObserver(observer)
+                cont.invokeOnCancellation { activity.lifecycle.removeObserver(observer) }
+            }
+        } ?: isGranted(activity.applicationContext, permissionType)
     }
 
     private fun buildIntents(context: Context, permissionType: PermissionType): List<Intent> = buildList {

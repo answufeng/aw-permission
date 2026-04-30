@@ -175,6 +175,14 @@ PermissionInfo.getLabel(Manifest.permission.CAMERA)
 SpecialPermission.isGranted(ctx, SpecialPermission.PermissionType.FLOAT_WINDOW)
 SpecialPermission.openSettings(ctx, SpecialPermission.PermissionType.AUTO_START)
 
+// 挂起式：打开设置页后等待返回并自动检查权限
+val granted = SpecialPermission.openSettingsAndWait(activity, SpecialPermission.PermissionType.FLOAT_WINDOW)
+
+// 扩展函数
+lifecycleScope.launch {
+    val granted = openSpecialPermissionSettingsAndWait(SpecialPermission.PermissionType.AUTO_START)
+}
+
 // 库内日志（默认关闭）
 AwPermission.setLogger { level, tag, msg -> Log.d(tag, msg) }
 AwPermission.setLogger(null)

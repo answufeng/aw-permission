@@ -299,3 +299,15 @@ public suspend fun Fragment.openAppSettingsAndWait(
 public fun Context.checkPermissions(vararg permissions: String): Map<String, Boolean> {
     return permissions.associateWith { AwPermission.isGranted(this, it) }
 }
+
+public suspend fun FragmentActivity.openSpecialPermissionSettingsAndWait(
+    permissionType: SpecialPermission.PermissionType
+): Boolean {
+    return SpecialPermission.openSettingsAndWait(this, permissionType)
+}
+
+public suspend fun Fragment.openSpecialPermissionSettingsAndWait(
+    permissionType: SpecialPermission.PermissionType
+): Boolean {
+    return SpecialPermission.openSettingsAndWait(this, permissionType)
+}

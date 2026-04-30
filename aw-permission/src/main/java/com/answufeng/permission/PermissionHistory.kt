@@ -2,14 +2,13 @@ package com.answufeng.permission
 
 import android.content.Context
 import android.content.SharedPreferences
-import java.util.concurrent.ConcurrentHashMap
 
 internal object PermissionHistory {
 
     private const val PREFS_NAME = "aw_permission_history"
     private const val KEY_REQUESTED_PERMISSIONS = "requested_permissions"
 
-    private val requestedPermissions = ConcurrentHashMap.newKeySet<String>()
+    private val requestedPermissions = mutableSetOf<String>()
     private var initialized = false
 
     @Synchronized
