@@ -2,6 +2,7 @@ package com.answufeng.permission
 
 import android.content.Context
 import android.content.SharedPreferences
+import java.util.HashSet
 
 internal object PermissionHistory {
 
@@ -15,7 +16,8 @@ internal object PermissionHistory {
     fun initialize(context: Context) {
         if (initialized) return
         val prefs = getPrefs(context)
-        requestedPermissions.addAll(prefs.getStringSet(KEY_REQUESTED_PERMISSIONS, emptySet()) ?: emptySet())
+        val stored = prefs.getStringSet(KEY_REQUESTED_PERMISSIONS, emptySet()) ?: emptySet()
+        requestedPermissions.addAll(HashSet(stored))
         initialized = true
     }
 
@@ -30,7 +32,9 @@ internal object PermissionHistory {
         ensureInitialized(context)
         val changed = requestedPermissions.addAll(permissions)
         if (changed) {
-            getPrefs(context).edit().putStringSet(KEY_REQUESTED_PERMISSIONS, requestedPermissions).apply()
+            getPrefs(context).edit()
+                .putStringSet(KEY_REQUESTED_PERMISSIONS, HashSet(requestedPermissions))
+                .apply()
         }
     }
 

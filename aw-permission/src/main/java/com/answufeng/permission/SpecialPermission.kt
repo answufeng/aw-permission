@@ -188,8 +188,12 @@ public object SpecialPermission {
         activity: FragmentActivity,
         permissionType: PermissionType
     ): Boolean {
-        openSettings(activity, permissionType)
-        return waitForActivityResumedAndCheck(activity, permissionType)
+        return AwPermission.withPermissionSequenceLock {
+            if (!openSettings(activity, permissionType)) {
+                return@withPermissionSequenceLock isGranted(activity.applicationContext, permissionType)
+            }
+            waitForActivityResumedAndCheck(activity, permissionType)
+        }
     }
 
     public suspend fun openSettingsAndWait(
