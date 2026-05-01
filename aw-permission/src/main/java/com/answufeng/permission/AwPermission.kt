@@ -101,7 +101,7 @@ object AwPermission {
     /**
      * 與 [request] / [openAppSettingsAndWait] 共用同一 [Mutex]，供特殊權限等擴展 API 串行化使用。
      */
-    internal suspend fun <T> withPermissionSequenceLock(block: suspend () -> T): T = mutex.withLock(block)
+    internal suspend fun <T> withPermissionSequenceLock(block: suspend () -> T): T = mutex.withLock { block() }
 
     /**
      * 日志级别。
